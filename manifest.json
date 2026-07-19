@@ -1,0 +1,10 @@
+{
+  "name": "Shift Manager",
+  "short_name": "Guardia",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#e5e5e5",
+  "theme_color": "#315a9f",
+  "description": "Gestión de guardias táctil y responsive.",
+  "icons": []
+}

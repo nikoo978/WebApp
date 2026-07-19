@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Shift Manager WebN5</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#315a9f">
+</head>
+<body>
+  <div id="lockScreen" class="lock-screen">
+    <form id="pinForm" class="pin-card">
+      <h2>Acceso</h2>
+      <p>Ingresá el PIN para abrir la planilla.</p>
+      <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" placeholder="PIN">
+      <button class="primary" type="submit">Entrar</button>
+      <div id="pinError" class="pin-error"></div>
+    </form>
+  </div>
+
+  <nav class="tabs app-controls" aria-label="Secciones">
+    <button class="tab active" data-tab="planilla">Planilla</button>
+    <button class="tab" data-tab="personal">Personal</button>
+    <button class="tab" data-tab="turnos">Turnos 24 / Canes</button>
+    <button class="tab" data-tab="vacaciones">Art. 214</button>
+    <button class="tab" data-tab="datos">Datos</button>
+  </nav>
+
+  <button id="btnShowControls" class="show-controls hidden" type="button">☰ Controles</button>
+
+  <main>
+    <section id="tab-planilla" class="panel active">
+      <div class="toolbar desktop-like app-controls">
+        <button id="btnAddRow">Agregar fila</button>
+        <button id="btnSaveAll" class="primary">Guardar</button>
+        <button id="btnLoadDay" class="primary">Cargar personal del día</button>
+        <button id="btnSort">Ordenar por servicio</button>
+        <button id="btnClear">Limpiar filas</button>
+        <button id="btnExportJpg">Exportar JPG</button>
+        <button id="btnPrint">Imprimir / PDF</button>
+        <button id="btnHideControls" class="secondary">Ocultar controles</button>
+
+        <label>Fecha
+          <input id="planDate" type="date">
+        </label>
+        <label>Día
+          <select id="planDay"></select>
+        </label>
+        <label>Turno 24
+          <select id="planTurno"></select>
+        </label>
+      </div>
+
+      <div class="hint">
+        Toque/click en celda: vacío → X → X/ → /X → vacío. En pantalla táctil: mantener presionado coloca H. Con mouse: Ctrl + click coloca H.
+      </div>
+
+      <div class="sheet-wrap">
+        <table id="shiftTable" class="shift-table">
+          <thead id="shiftHead"></thead>
+          <tbody id="shiftBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-personal" class="panel">
+      <div class="form-grid card">
+        <label>Nombre <input id="personName" type="text"></label>
+        <label>Servicio <select id="personService"></select></label>
+        <label>Estado <select id="personState"><option>Activo</option><option>Inactivo</option></select></label>
+        <label>Días <input id="personDays" type="text" placeholder="lunes a viernes"></label>
+        <label>Hora inicio <select id="personStart"></select></label>
+        <label>Hora fin <select id="personEnd"></select></label>
+        <label>Turno 24 <select id="personTurno"></select></label>
+        <label>Modalidad <select id="personMode"><option>Fijo</option><option>Rotativo semanal</option></select></label>
+        <label>Semana A (base/presente) inicio <select id="rotAStart"></select></label>
+        <label>Semana A (base/presente) fin <select id="rotAEnd"></select></label>
+        <label>Semana B (alterna) inicio <select id="rotBStart"></select></label>
+        <label>Semana B (alterna) fin <select id="rotBEnd"></select></label>
+        <label>Fecha base Semana A <input id="rotBase" type="date"></label>
+        <div class="actions">
+          <button id="btnSavePerson" class="primary">Guardar / actualizar</button>
+          <button id="btnNewPerson">Limpiar</button>
+        </div>
+      </div>
+      <div class="table-scroll card">
+        <table class="data-table striped" id="personalTable"></table>
+      </div>
+    </section>
+
+    <section id="tab-turnos" class="panel">
+      <div class="turnos-layout">
+        <div class="card">
+          <h2>Turno</h2>
+          <div class="turno-pills" id="turnoPills"></div>
+          <button id="btnUseTurno" class="wide">Usar en planilla</button>
+        </div>
+
+        <div class="card">
+          <h2>Personal fijo 24hs</h2>
+          <div class="inline-form">
+            <input id="turnoPersonInput" list="staffList" placeholder="Nombre">
+            <button id="btnAddTurnoPerson">Agregar</button>
+            <button id="btnUpdateTurnoPerson">Modificar</button>
+            <button id="btnRemoveTurnoPerson">Quitar</button>
+          </div>
+          <ul id="turnoPersonList" class="select-list"></ul>
+        </div>
+
+        <div class="card">
+          <h2>Canes</h2>
+          <div class="inline-form">
+            <input id="canesInput" list="staffList" placeholder="Canes del turno">
+            <button id="btnSaveCanes">Guardar</button>
+          </div>
+
+          <h2>Rotativos 48hs</h2>
+          <div class="form-grid compact">
+            <label>Nombre <input id="rot48Name" list="staffList"></label>
+            <label>Turnos <select id="rot48Pair"><option>A-B</option><option>B-C</option><option>C-D</option><option>D-A</option></select></label>
+            <label>Fecha presente <input id="rot48Date" type="date"></label>
+            <label>Estado <select id="rot48Active"><option value="true">Activo</option><option value="false">Inactivo</option></select></label>
+          </div>
+          <div class="actions">
+            <button id="btnSaveRot48">Agregar / actualizar</button>
+            <button id="btnRemoveRot48">Quitar</button>
+          </div>
+          <div class="table-scroll small">
+            <table class="data-table striped" id="rot48Table"></table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Vista previa</h2>
+          <table class="data-table striped" id="turnoPreview"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-vacaciones" class="panel">
+      <div class="card">
+        <h2>Art. 214 / Vacaciones</h2>
+        <p>La presentación se calcula como el día posterior al “Hasta”.</p>
+        <table class="data-table striped" id="vacTable"></table>
+      </div>
+    </section>
+
+    <section id="tab-datos" class="panel">
+      <div class="card">
+        <h2>Respaldo y compatibilidad con escritorio</h2>
+        <p>La web app lee el mismo formato de <strong>personal.json</strong> que la app de escritorio. En hosting estático, como Vercel sin backend, los cambios quedan en este navegador; exportá los JSON para sincronizarlos con la app de escritorio.</p>
+        <div class="actions">
+          <button id="btnExportBackup">Exportar respaldo completo</button>
+          <button id="btnExportPersonal">Exportar personal.json</button>
+          <button id="btnExportTurnos">Exportar turnos.json</button>
+          <label class="file-label">Importar JSON
+            <input id="importFile" type="file" accept="application/json">
+          </label>
+          <button id="btnResetData" class="danger">Restaurar datos iniciales</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="staffList"></datalist>
+
+  <script src="seed-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
