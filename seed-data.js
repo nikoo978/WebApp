@@ -14,7 +14,7 @@ window.SEED_PERSONAL = [
     "rotativo_b_fin": "",
     "fecha_base_rotacion": "",
     "observaciones": "RESTRICCIONES (ROTATIVO)",
-    "estado": "Activo",
+    "estado": "Inactivo",
     "ausencias": [],
     "asignaciones": [
       {
@@ -294,7 +294,7 @@ window.SEED_PERSONAL = [
     "rotativo_b_fin": "",
     "fecha_base_rotacion": "",
     "observaciones": "",
-    "estado": "Activo",
+    "estado": "Inactivo",
     "ausencias": [],
     "asignaciones": [
       {
@@ -382,7 +382,7 @@ window.SEED_PERSONAL = [
     ]
   },
   {
-    "nombre": "Diaz Walter (puesto 1)",
+    "nombre": "Diaz Walter",
     "jerarquia": "CABO",
     "servicio": "Diario",
     "dias": "LUNES A VIERNES",
@@ -928,7 +928,7 @@ window.SEED_PERSONAL = [
     ]
   },
   {
-    "nombre": "Perez Vanessa Laura (Art)",
+    "nombre": "Perez Vanessa Laura",
     "jerarquia": "ALCAIDE (E.G.)",
     "servicio": "6hs",
     "dias": "LUNES A VIERNES",
@@ -1093,7 +1093,7 @@ window.SEED_PERSONAL = [
     ]
   },
   {
-    "nombre": "Riveros Laura (puesto 1)",
+    "nombre": "Riveros Laura",
     "jerarquia": "CABO 1 (E.G)",
     "servicio": "4hs",
     "dias": "LUNES A VIERNES",
@@ -1195,7 +1195,7 @@ window.SEED_PERSONAL = [
     ]
   },
   {
-    "nombre": "Valdez Carmen (adm Gse)",
+    "nombre": "Valdez Carmen",
     "jerarquia": "SUBALCAIDE (E.ADM)",
     "servicio": "6hs",
     "dias": "LUNES A VIERNES",

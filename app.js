@@ -4,13 +4,15 @@ const DAYS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado
 const TURNOS = ["", "A", "B", "C", "D"];
 const SERVICES = ["24hs","4hs","6hs","12hs","Rondin","Canes","Diario","Recargo"];
 const FATIGUE_SERVICES = new Set(["12hs","24hs","canes"]);
-const STORAGE_KEY = "shiftManagerWebN5_LOCAL_CACHE";
+const STORAGE_KEY = "shiftManagerWebN6_LOCAL_CACHE";
 const TURNO_REF = parseDMY("18/04/1979");
 const TURNO_SEQ = ["A","B","C","D"];
 const FULL = new Set(["X","H"]);
 const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
+const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
+const APP_VERSION = "WebN6";
 
 let state = null;
 let selectedTurnoAdmin = "A";
@@ -37,6 +39,7 @@ function normalizePersonRecord(p){
   p = {...p};
   p.nombre = toTitleName(cleanName(p.nombre || ""));
   p.estado = p.estado || "Activo";
+  if(INACTIVE_OVERRIDES.has(norm(p.nombre))) p.estado = "Inactivo";
   if(Array.isArray(p.asignaciones)){
     p.asignaciones = p.asignaciones.map(a=>({...a}));
   }
@@ -155,9 +158,11 @@ async function startCloudSession(){
     state.turnos = normalizeTurnos(state.turnos || {});
     state.personal = (state.personal || []).map(normalizePersonRecord);
     state.planilla ||= {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
+    state.app_version = APP_VERSION;
     q("#lockScreen").classList.add("hidden");
     setStatus("Nube sincronizada", "ok");
     renderAll();
+    save();
   }catch(err){
     if(err.status === 401){
       q("#lockScreen").classList.remove("hidden");

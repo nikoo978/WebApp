@@ -1,4 +1,4 @@
-Shift Manager WebN5 - Vercel + PIN + Nube
+Shift Manager WebN6 - Vercel + PIN + Nube
 
 PIN por defecto: 6426. En Vercel configurar APP_PIN=6426.
 
@@ -25,3 +25,7 @@ WebN4:
 
 WebN5:
 - H suma en tiros, pero no suma en Hay / puestos totales.
+
+WebN6:
+- Arnaldo Andrade y Cristina Ayala quedan como Inactivo según indicación del usuario.
+- La web app fuerza esos estados al leer la nube y los vuelve a guardar automáticamente.
