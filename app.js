@@ -12,7 +12,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN8";
+const APP_VERSION = "WebN9";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -29,6 +29,7 @@ let state = null;
 let selectedTurnoAdmin = "A";
 let selectedFixedIndex = null;
 let selectedRot48Index = null;
+let selectedAbsence = null;
 let longPressTimer = null;
 let longPressFired = false;
 let lastContentSnapshot = "";
@@ -49,6 +50,20 @@ function toTitleName(name){
     return part.split("-").map(p=>p ? p[0].toUpperCase()+p.slice(1).toLowerCase() : p).join("-");
   }).join(" ");
 }
+function normalizeAbsenceRecord(a){
+  a = {...(a || {})};
+  const rawType = norm(a.tipo || a.type || "");
+  const is214 = rawType.includes("214") || rawType.includes("descanso anual") || rawType.includes("vacacion");
+  const tipo = is214 ? "Art 214" : "Carpeta Medica";
+  return {
+    id: a.id || `absence-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    tipo,
+    articulo: tipo === "Carpeta Medica" ? String(a.articulo || a.artículo || a.motivo || "").trim() : "",
+    desde: isoToDMY(a.desde || a.inicio || ""),
+    hasta: isoToDMY(a.hasta || a.fin || ""),
+    observaciones: String(a.observaciones || "").trim()
+  };
+}
 function normalizePersonRecord(p){
   p = {...p};
   p.nombre = toTitleName(cleanName(p.nombre || ""));
@@ -57,6 +72,7 @@ function normalizePersonRecord(p){
   if(Array.isArray(p.asignaciones)){
     p.asignaciones = p.asignaciones.map(a=>({...a}));
   }
+  p.ausencias = Array.isArray(p.ausencias) ? p.ausencias.map(normalizeAbsenceRecord) : [];
   return p;
 }
 function migratePersonalCatalog(){
@@ -168,6 +184,7 @@ async function init(){
   bindTabs();
   bindPlanilla();
   bindPersonal();
+  bindLicenses();
   bindTurnos();
   bindDatos();
   bindDashboard();
@@ -625,19 +642,20 @@ function addStandardRows(d){
 
   (state.turnos.turnos_24?.[turno] || []).forEach(n=>{
     const name = toTitleName(cleanName(n));
-    if(rotNames.has(norm(name))) return;
+    if(rotNames.has(norm(name)) || isPersonUnavailableByName(name,d)) return;
     if(!existing.has(norm(name))){ state.planilla.rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
   });
 
   (state.turnos.rotativos_48||[]).forEach(item=>{
     if(rotativo48Present(item,d,turno)){
       const name = toTitleName(cleanName(item.nombre));
+      if(isPersonUnavailableByName(name,d)) return;
       if(!existing.has(norm(name))){ state.planilla.rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
     }
   });
 
   const canes = toTitleName(cleanName(state.turnos.canes_por_turno?.[turno] || ""));
-  if(canes && !existing.has(norm(canes))){ state.planilla.rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
+  if(canes && !isPersonUnavailableByName(canes,d) && !existing.has(norm(canes))){ state.planilla.rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
 
   ["Rondin1","Rondin2","Rondin3"].forEach(n=>{
     state.planilla.rows.push({nombre:n, servicio:"Rondin", cells:marksFromRange("22","07"), recargo:false});
@@ -678,25 +696,50 @@ function addStandardRowsTo(rows,d,turno){
   const rotNames = new Set((state.turnos.rotativos_48||[]).map(x=>norm(x.nombre)));
   (state.turnos.turnos_24?.[turno] || []).forEach(n=>{
     const name = toTitleName(cleanName(n));
-    if(rotNames.has(norm(name))) return;
+    if(rotNames.has(norm(name)) || isPersonUnavailableByName(name,d)) return;
     if(!existing.has(norm(name))){ rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
   });
   (state.turnos.rotativos_48||[]).forEach(item=>{
     if(rotativo48Present(item,d,turno)){
       const name = toTitleName(cleanName(item.nombre));
+      if(isPersonUnavailableByName(name,d)) return;
       if(!existing.has(norm(name))){ rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
     }
   });
   const canes = toTitleName(cleanName(state.turnos.canes_por_turno?.[turno] || ""));
-  if(canes && !existing.has(norm(canes))){ rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
+  if(canes && !isPersonUnavailableByName(canes,d) && !existing.has(norm(canes))){ rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
   ["Rondin1","Rondin2","Rondin3"].forEach(n=>rows.push({nombre:n, servicio:"Rondin", cells:marksFromRange("22","07"), recargo:false}));
 }
 
 function isAbsent(p,d){
-  return (p.ausencias||[]).some(a=>{
-    const from = parseDMY(a.desde), to=parseDMY(a.hasta);
-    return from && to && d>=from && d<=to;
+  return (p.ausencias||[]).some(raw=>{
+    const a = normalizeAbsenceRecord(raw);
+    const from = parseDMY(a.desde), to = parseDMY(a.hasta);
+    if(!from || d < from) return false;
+    return !to || d <= to;
   });
+}
+function absenceStatus(a, reference=new Date()){
+  const today = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+  const from = parseDMY(a.desde), to = parseDMY(a.hasta);
+  if(!from) return {key:"invalid", label:"Fecha inválida"};
+  if(today < from) return {key:"future", label:"Próxima"};
+  if(!to || today <= to) return {key:"active", label:"Vigente"};
+  return {key:"ended", label:"Finalizada"};
+}
+function absenceLabel(a){
+  const n = normalizeAbsenceRecord(a);
+  return n.tipo === "Art 214" ? "Art. 214" : `Carpeta Médica${n.articulo ? " · "+n.articulo : ""}`;
+}
+function activeAbsences(p, reference=new Date()){
+  return (p.ausencias||[]).map(normalizeAbsenceRecord).filter(a=>absenceStatus(a,reference).key === "active");
+}
+function personByName(name){
+  return state.personal.find(p=>norm(cleanName(p.nombre))===norm(cleanName(name)));
+}
+function isPersonUnavailableByName(name,d){
+  const p=personByName(name);
+  return !!p && (norm(p.estado||"Activo")==="inactivo" || isAbsent(p,d));
 }
 function dayTokens(text){
   const t = norm(text).replace(/\n/g," ");
@@ -858,16 +901,18 @@ function bindDailyView(){
   if(search) search.addEventListener("input", renderDailyView);
 }
 function renderDailyView(){
-  const root = q("#dailyContent"); if(!root) return;
   const rows = state.planilla.rows || [];
   const groups = {};
   rows.forEach(r=>{ const k=r.servicio||"Sin servicio"; (groups[k] ||= []).push(r); });
   const order = ["24hs","Canes","12hs","6hs","4hs","Diario","Rondin","Recargo","Sin servicio"];
   const serviceCards = order.filter(k=>groups[k]).map(k=>`<div class="service-card"><h3>${k}</h3>${groups[k].map(r=>`<div class="service-person ${r.recargo?'recargo-name':''}">${esc(r.nombre)} <small>${formatNum(tiros(r))} tiros</small></div>`).join("")}</div>`).join("");
   const term = norm(q("#quickSearch")?.value || "");
-  const matches = term ? state.personal.filter(p=>norm([p.nombre,p.jerarquia,p.legajo,p.servicio,p.dias,p.observaciones,p.situacion].join(" ")).includes(term)).slice(0,20) : [];
+  const matches = term ? state.personal.filter(p=>norm([p.nombre,p.jerarquia,p.legajo,p.servicio,p.dias,p.observaciones,p.situacion,...(p.ausencias||[]).map(absenceLabel)].join(" ")).includes(term)).slice(0,20) : [];
   q("#dailyServices").innerHTML = serviceCards || `<p>No hay filas cargadas. Usá “Cargar personal del día”.</p>`;
-  q("#searchResults").innerHTML = !term ? "" : (matches.length ? matches.map(p=>`<div class="search-hit"><strong>${esc(p.nombre)}</strong><span>${esc(p.jerarquia||"")}${p.legajo?" · Legajo "+esc(p.legajo):""} · ${esc(p.servicio||"")} · ${esc(p.dias||"")} · ${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}${p.situacion?" · "+esc(p.situacion):""} · ${esc(p.estado||"Activo")}</span></div>`).join("") : `<p>Sin resultados.</p>`);
+  q("#searchResults").innerHTML = !term ? "" : (matches.length ? matches.map(p=>{
+    const active = activeAbsences(p).map(absenceLabel).join(" · ");
+    return `<div class="search-hit"><strong>${esc(p.nombre)}</strong><span>${esc(p.jerarquia||"")}${p.legajo?" · Legajo "+esc(p.legajo):""} · ${esc(p.servicio||"")} · ${esc(p.dias||"")} · ${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}${p.situacion?" · "+esc(p.situacion):""} · ${esc(p.estado||"Activo")}${active?" · LICENCIA: "+esc(active):""}</span></div>`;
+  }).join("") : `<p>Sin resultados.</p>`);
   renderFatigueInto(q("#dailyFatigue"), rows);
 }
 
@@ -877,12 +922,13 @@ function bindPersonal(){
 }
 function renderPersonal(){
   const table = q("#personalTable");
-  table.innerHTML = `<tr><th>Nombre</th><th>Jerarquía</th><th>Legajo</th><th>Servicio</th><th>Estado</th><th>Días</th><th>Horario</th><th>Observaciones</th></tr>`;
+  table.innerHTML = `<tr><th>Nombre</th><th>Jerarquía</th><th>Legajo</th><th>Servicio</th><th>Estado</th><th>Licencia vigente</th><th>Días</th><th>Horario</th><th>Observaciones</th></tr>`;
   state.personal.forEach((p,i)=>{
     const tr=document.createElement("tr");
     if(norm(p.estado)==="inactivo") tr.classList.add("inactive-row");
     const obs = [p.situacion,p.observaciones].filter(Boolean).join(" · ");
-    tr.innerHTML = `<td>${esc(p.nombre)}</td><td>${esc(p.jerarquia||"")}</td><td>${esc(p.legajo||"")}</td><td>${esc(p.servicio)}</td><td>${esc(p.estado||"Activo")}</td><td>${esc(p.dias||"")}</td><td>${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}</td><td>${esc(obs)}</td>`;
+    const license = activeAbsences(p).map(absenceLabel).join(" · ");
+    tr.innerHTML = `<td>${esc(p.nombre)}</td><td>${esc(p.jerarquia||"")}</td><td>${esc(p.legajo||"")}</td><td>${esc(p.servicio)}</td><td>${esc(p.estado||"Activo")}</td><td>${license?`<span class="license-badge">${esc(license)}</span>`:""}</td><td>${esc(p.dias||"")}</td><td>${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}</td><td>${esc(obs)}</td>`;
     tr.onclick=()=>loadPersonForm(i);
     table.append(tr);
   });
@@ -972,16 +1018,123 @@ function renderTurnoPreview(){
   rows.forEach((r,i)=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${i+1}</td><td>${esc(r[0])}</td><td>${r[1]}</td><td>${r[2]}</td>`; t.append(tr); });
 }
 
+function bindLicenses(){
+  q("#absenceType").onchange = updateAbsenceFormRules;
+  q("#absenceTo").onchange = updateAbsenceReturn;
+  q("#absenceFrom").onchange = updateAbsenceReturn;
+  q("#btnSaveAbsence").onclick = saveAbsence;
+  q("#btnNewAbsence").onclick = clearAbsenceForm;
+  q("#btnDeleteAbsence").onclick = deleteSelectedAbsence;
+  updateAbsenceFormRules();
+}
+function updateAbsenceFormRules(){
+  const is214 = q("#absenceType").value === "Art 214";
+  q("#absenceArticleLabel").classList.toggle("field-disabled", is214);
+  q("#absenceArticle").disabled = is214;
+  if(is214) q("#absenceArticle").value = "";
+  q("#absenceToHelp").textContent = is214 ? "Obligatorio para Art. 214." : "Opcional: vacío significa que continúa vigente.";
+  q("#absenceReturn").closest("label").classList.toggle("field-disabled", !is214);
+  updateAbsenceReturn();
+}
+function updateAbsenceReturn(){
+  const is214 = q("#absenceType").value === "Art 214";
+  const until = parseAnyDate(q("#absenceTo").value);
+  q("#absenceReturn").value = is214 && until ? formatDMY(addDays(until,1)) : "";
+}
+function clearAbsenceForm(){
+  selectedAbsence = null;
+  q("#absencePerson").value = "";
+  q("#absenceType").value = "Art 214";
+  q("#absenceArticle").value = "";
+  q("#absenceFrom").value = "";
+  q("#absenceTo").value = "";
+  q("#absenceNotes").value = "";
+  updateAbsenceFormRules();
+  renderVacaciones();
+}
+function loadAbsenceForm(personIndex, absenceIndex){
+  const p = state.personal[personIndex];
+  const a = normalizeAbsenceRecord(p.ausencias[absenceIndex]);
+  selectedAbsence = {personIndex, absenceIndex, id:a.id};
+  q("#absencePerson").value = p.nombre;
+  q("#absenceType").value = a.tipo;
+  q("#absenceArticle").value = a.articulo || "";
+  q("#absenceFrom").value = dmyToISO(a.desde);
+  q("#absenceTo").value = dmyToISO(a.hasta);
+  q("#absenceNotes").value = a.observaciones || "";
+  updateAbsenceFormRules();
+  renderVacaciones();
+}
+function saveAbsence(){
+  const personName = toTitleName(cleanName(q("#absencePerson").value));
+  const targetPersonIndex = state.personal.findIndex(p=>norm(p.nombre)===norm(personName));
+  if(targetPersonIndex < 0) return alert("Seleccioná una persona existente.");
+  const tipo = q("#absenceType").value;
+  const articulo = q("#absenceArticle").value.trim();
+  const fromDate = parseAnyDate(q("#absenceFrom").value);
+  const toDate = parseAnyDate(q("#absenceTo").value);
+  if(!fromDate) return alert("Indicá la fecha de inicio.");
+  if(tipo === "Art 214" && !toDate) return alert("El Art. 214 requiere fecha de finalización.");
+  if(tipo === "Carpeta Medica" && !articulo) return alert("Indicá el artículo o motivo de la Carpeta Médica.");
+  if(toDate && toDate < fromDate) return alert("La fecha de fin no puede ser anterior a la fecha de inicio.");
+
+  const record = normalizeAbsenceRecord({
+    id: selectedAbsence?.id,
+    tipo,
+    articulo,
+    desde: formatDMY(fromDate),
+    hasta: toDate ? formatDMY(toDate) : "",
+    observaciones:q("#absenceNotes").value.trim()
+  });
+
+  if(selectedAbsence){
+    const oldPerson = state.personal[selectedAbsence.personIndex];
+    if(oldPerson?.ausencias?.[selectedAbsence.absenceIndex]) oldPerson.ausencias.splice(selectedAbsence.absenceIndex,1);
+  }
+  state.personal[targetPersonIndex].ausencias ||= [];
+  state.personal[targetPersonIndex].ausencias.push(record);
+  state.personal[targetPersonIndex].ausencias.sort((a,b)=>(parseDMY(a.desde)||0)-(parseDMY(b.desde)||0));
+  save({action: tipo === "Art 214" ? "Registrar Art. 214" : "Registrar Carpeta Médica"});
+  clearAbsenceForm();
+  renderAll();
+}
+function deleteSelectedAbsence(){
+  if(!selectedAbsence) return alert("Seleccioná una licencia de la tabla.");
+  const p = state.personal[selectedAbsence.personIndex];
+  const a = p?.ausencias?.[selectedAbsence.absenceIndex];
+  if(!a) return clearAbsenceForm();
+  if(!confirm(`¿Eliminar ${absenceLabel(a)} de ${p.nombre}?`)) return;
+  p.ausencias.splice(selectedAbsence.absenceIndex,1);
+  save({action:"Eliminar licencia"});
+  clearAbsenceForm();
+  renderAll();
+}
 function renderVacaciones(){
-  const rows=[];
-  state.personal.forEach(p=>(p.ausencias||[]).forEach(a=>{
-    if(a.tipo==="Art 214"){
-      const hasta=parseDMY(a.hasta);
-      rows.push([p.jerarquia||"", p.nombre, a.desde, a.hasta, hasta?formatDMY(addDays(hasta,1)):""]);
-    }
+  const records=[];
+  state.personal.forEach((p,personIndex)=>(p.ausencias||[]).forEach((raw,absenceIndex)=>{
+    const a=normalizeAbsenceRecord(raw);
+    p.ausencias[absenceIndex]=a;
+    const status=absenceStatus(a);
+    const until=parseDMY(a.hasta);
+    records.push({p,a,personIndex,absenceIndex,status,presentation:a.tipo==="Art 214" && until?formatDMY(addDays(until,1)):""});
   }));
-  const t=q("#vacTable"); t.innerHTML="<tr><th>Jerarquía</th><th>Nombre</th><th>Desde</th><th>Hasta</th><th>Presentación</th></tr>";
-  rows.forEach(r=>{ const tr=document.createElement("tr"); tr.innerHTML=r.map(x=>`<td>${esc(x)}</td>`).join(""); t.append(tr); });
+  const priority={active:0,future:1,ended:2,invalid:3};
+  records.sort((x,y)=>(priority[x.status.key]-priority[y.status.key]) || ((parseDMY(y.a.desde)||0)-(parseDMY(x.a.desde)||0)) || x.p.nombre.localeCompare(y.p.nombre));
+  const t=q("#vacTable");
+  t.innerHTML="<tr><th>Estado</th><th>Jerarquía</th><th>Nombre</th><th>Tipo / artículo</th><th>Desde</th><th>Hasta</th><th>Presentación</th><th>Observaciones</th></tr>";
+  if(!records.length){
+    t.innerHTML += '<tr><td colspan="8" class="empty-cell">No hay licencias registradas.</td></tr>';
+    return;
+  }
+  records.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.className=`absence-row absence-${r.status.key}`;
+    if(selectedAbsence && selectedAbsence.id===r.a.id) tr.classList.add("selected");
+    const untilText = r.a.hasta || (r.a.tipo === "Carpeta Medica" ? "Sin fecha de fin" : "");
+    tr.innerHTML=`<td><span class="absence-status ${r.status.key}">${esc(r.status.label)}</span></td><td>${esc(r.p.jerarquia||"")}</td><td><strong>${esc(r.p.nombre)}</strong></td><td>${esc(absenceLabel(r.a))}</td><td>${esc(r.a.desde)}</td><td>${esc(untilText)}</td><td>${esc(r.presentation)}</td><td>${esc(r.a.observaciones||"")}</td>`;
+    tr.onclick=()=>loadAbsenceForm(r.personIndex,r.absenceIndex);
+    t.append(tr);
+  });
 }
 function bindDatos(){
   q("#btnExportBackup").onclick=()=> downloadJson("shift_manager_respaldo.json", state);

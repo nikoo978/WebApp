@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Shift Manager WebN8</title>
+  <title>Shift Manager WebN9</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <meta name="theme-color" content="#315a9f">
@@ -25,7 +25,7 @@
     <button class="tab" data-tab="dia">Día</button>
     <button class="tab" data-tab="personal">Personal</button>
     <button class="tab" data-tab="turnos">Turnos 24 / Canes</button>
-    <button class="tab" data-tab="vacaciones">Art. 214</button>
+    <button class="tab" data-tab="vacaciones">Licencias</button>
     <button class="tab" data-tab="datos">Datos</button>
   </nav>
 
@@ -170,9 +170,48 @@
 
     <section id="tab-vacaciones" class="panel">
       <div class="card">
-        <h2>Art. 214 / Vacaciones</h2>
-        <p>La presentación se calcula como el día posterior al “Hasta”.</p>
-        <table class="data-table striped" id="vacTable"></table>
+        <h2>Licencias y carpetas médicas</h2>
+        <p>El Art. 214 exige fecha de inicio y fin; la presentación se calcula automáticamente para el día siguiente. En Carpeta Médica, la fecha de fin es opcional.</p>
+        <div class="form-grid license-form">
+          <label>Personal
+            <input id="absencePerson" list="staffList" placeholder="Nombre del personal">
+          </label>
+          <label>Tipo
+            <select id="absenceType">
+              <option value="Art 214">Art. 214 · Descanso anual</option>
+              <option value="Carpeta Medica">Carpeta Médica</option>
+            </select>
+          </label>
+          <label id="absenceArticleLabel">Artículo / motivo
+            <input id="absenceArticle" list="medicalArticleList" placeholder="Ej.: Art. 175, 172, 226h">
+          </label>
+          <label>Desde
+            <input id="absenceFrom" type="date">
+          </label>
+          <label>Hasta
+            <input id="absenceTo" type="date">
+            <small id="absenceToHelp">Obligatorio para Art. 214.</small>
+          </label>
+          <label>Presentación
+            <input id="absenceReturn" type="text" readonly placeholder="Se calcula automáticamente">
+          </label>
+          <label class="license-notes">Observaciones
+            <input id="absenceNotes" type="text" placeholder="Dato opcional">
+          </label>
+          <div class="actions license-actions">
+            <button id="btnSaveAbsence" class="primary">Guardar / actualizar</button>
+            <button id="btnNewAbsence">Limpiar</button>
+            <button id="btnDeleteAbsence" class="danger">Eliminar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Registro de licencias</h2>
+        <p>Las licencias vigentes impiden que la persona sea cargada automáticamente en la planilla del día.</p>
+        <div class="table-scroll">
+          <table class="data-table striped" id="vacTable"></table>
+        </div>
       </div>
     </section>
 
@@ -208,6 +247,12 @@
   </main>
 
   <datalist id="staffList"></datalist>
+  <datalist id="medicalArticleList">
+    <option value="Art. 175"></option>
+    <option value="Art. 172"></option>
+    <option value="Art. 226h"></option>
+    <option value="Art. 226e"></option>
+  </datalist>
 
   <script src="seed-data.js"></script>
   <script src="app.js"></script>

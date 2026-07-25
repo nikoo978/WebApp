@@ -204,3 +204,23 @@ input[type="date"]{
 .service-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem}.service-card{border:1px solid #ccc;border-radius:10px;background:#fafafa;padding:.75rem}.service-card h3{margin:.1rem 0 .5rem;color:#315a9f}.service-person{padding:.35rem;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;gap:.5rem}.service-person small{color:#555}.wide-input{width:100%;min-height:42px;padding:.5rem}.search-results{margin-top:.5rem}.search-hit{border-bottom:1px solid #e0e0e0;padding:.55rem 0;display:flex;flex-direction:column}.search-hit span{color:#555;font-size:.88rem}
 @media (max-width:700px){.period-row{grid-template-columns:1fr}.period-cell{text-align:left}.rank-row{grid-template-columns:90px 1fr 38px}}
 @media print{body.hide-empty-deben-print .deben-row{display:none!important}body.hide-empty-deben-print .print-puestos{display:table-cell!important}.show-controls{display:none!important}}
+
+/* WebN9: licencias Art. 214 y carpetas médicas */
+.license-form{align-items:end}
+.license-form small{font-weight:500;color:#666;line-height:1.25}
+.license-notes{grid-column:span 2}
+.license-actions{align-self:end;flex-wrap:wrap}
+.field-disabled{opacity:.5}
+.field-disabled input{background:#eee}
+.license-badge{display:inline-block;padding:.2rem .45rem;border-radius:999px;background:#fff2cc;border:1px solid #d6ad31;color:#684e00;font-size:.78rem;font-weight:800}
+.absence-row{cursor:pointer}
+.absence-row:hover td{filter:brightness(.97)}
+.absence-row.selected{outline:3px solid #f4b400;outline-offset:-3px}
+.absence-status{display:inline-block;min-width:72px;text-align:center;padding:.2rem .45rem;border-radius:999px;font-size:.78rem;font-weight:800;border:1px solid transparent}
+.absence-status.active{background:#ffe3e0;color:#8d1308;border-color:#f1a39c}
+.absence-status.future{background:#fff2cc;color:#684e00;border-color:#e0c25e}
+.absence-status.ended{background:#e7ebf0;color:#45505d;border-color:#b9c1cb}
+.absence-status.invalid{background:#f0d8f7;color:#651478;border-color:#ca9ed7}
+.absence-active td{background:#fff8f7}
+.empty-cell{text-align:center!important;color:#666;padding:1rem!important}
+@media (max-width:700px){.license-notes{grid-column:auto}.license-actions{grid-column:1/-1}}

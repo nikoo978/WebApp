@@ -1,31 +1,31 @@
-Shift Manager WebN8 - LISTO PARA ACTUALIZAR EN GIT Y VERCEL
+Shift Manager WebN9 - LISTO PARA ACTUALIZAR EN GIT Y VERCEL
 
-CONTENIDO
-- Todas las mejoras de WebN7.
-- Catálogo de personal actualizado con la planilla de servicios diarios recibida.
-- Jerarquía, legajo, situación y observaciones visibles/editables en la pestaña Personal.
-- Migración automática de la base existente al catálogo WebN8 al abrir la aplicación.
-- Se preservan estados, ausencias, planillas, turnos, historial y backups existentes.
+NOVEDADES WEBN9
+- Gestión completa de Art. 214 / licencia por descanso anual.
+- Fecha de inicio y fecha de fin obligatorias para Art. 214.
+- Presentación calculada automáticamente para el día posterior al fin del Art. 214.
+- Gestión de Carpetas Médicas con artículo o motivo libre (Art. 175, 172, 226h, 226e, etc.).
+- La fecha de fin de Carpeta Médica es opcional; si queda vacía, la licencia continúa vigente.
+- Alta, modificación y eliminación de licencias desde una tabla única.
+- Estados visuales: Vigente, Próxima y Finalizada.
+- El personal con una licencia vigente no se carga automáticamente en la planilla del día.
+- Licencias vigentes visibles en la tabla de Personal y en el buscador rápido.
+- Compatibilidad y migración automática de los Art. 214 ya existentes.
 
-PERSONAS IGNORADAS EN ESTA ACTUALIZACIÓN
-Ramis Emiliano, Arnaldo Andrade, Cristina Ayala, Fernández María Sol,
-Lastra César Maximiliano, Barrera Hugo, Díaz Walter, Valdez Carmen y Riveros Laura.
-Sus registros existentes no se modifican.
-
-INTERPRETACIONES DE LA PLANILLA MANUSCRITA
-- Lovelli Georgina: martes y viernes 15 a 21; sábado 15 a 23.
-- Segovia Federico: lunes a viernes rotativo 07-13 / 13-19;
-  sábado rotativo 07-12 / 14-19.
+SE CONSERVA
+- Todo el personal actualizado de WebN8.
+- Planillas, turnos, vacaciones/licencias previas, historial, backups y configuración.
+- Acceso por PIN, Vercel y Upstash Redis existentes.
 
 ACTUALIZAR
 1. Descomprimir este ZIP.
-2. Copiar su contenido dentro de la carpeta del repositorio actual.
+2. Copiar todo su contenido dentro de la carpeta del repositorio actual.
 3. No borrar .git ni .env.local.
 4. Ejecutar:
 
    git status
    git add .
-   git commit -m "Actualizar a WebN8 y renovar personal"
+   git commit -m "Actualizar a WebN9 con licencias y carpetas medicas"
    git push
 
 Vercel desplegará automáticamente la actualización.
