@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Shift Manager WebN6</title>
+  <title>Shift Manager WebN8</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <meta name="theme-color" content="#315a9f">
@@ -21,6 +21,8 @@
 
   <nav class="tabs app-controls" aria-label="Secciones">
     <button class="tab active" data-tab="planilla">Planilla</button>
+    <button class="tab" data-tab="tablero">Tablero</button>
+    <button class="tab" data-tab="dia">Día</button>
     <button class="tab" data-tab="personal">Personal</button>
     <button class="tab" data-tab="turnos">Turnos 24 / Canes</button>
     <button class="tab" data-tab="vacaciones">Art. 214</button>
@@ -40,6 +42,8 @@
         <button id="btnExportJpg">Exportar JPG</button>
         <button id="btnPrint">Imprimir / PDF</button>
         <button id="btnHideControls" class="secondary">Ocultar controles</button>
+        <button id="btnFullscreen" class="secondary">Pantalla completa</button>
+        <button id="btnUndoTop" class="secondary">Deshacer</button>
 
         <label>Fecha
           <input id="planDate" type="date">
@@ -64,9 +68,35 @@
       </div>
     </section>
 
+
+    <section id="tab-tablero" class="panel">
+      <div id="dashboardContent"></div>
+    </section>
+
+    <section id="tab-dia" class="panel">
+      <div class="card">
+        <h2>Vista diaria simplificada</h2>
+        <p>Resumen de la planilla actual agrupado por servicio.</p>
+        <div id="dailyServices" class="service-grid"></div>
+      </div>
+      <div class="card">
+        <h2>Buscador rápido de personal</h2>
+        <input id="quickSearch" class="wide-input" placeholder="Buscar por nombre, servicio o día">
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <div class="card">
+        <h2>Fatiga del día</h2>
+        <div id="dailyFatigue"></div>
+      </div>
+    </section>
+
     <section id="tab-personal" class="panel">
       <div class="form-grid card">
         <label>Nombre <input id="personName" type="text"></label>
+        <label>Jerarquía <input id="personHierarchy" type="text"></label>
+        <label>Legajo <input id="personLegajo" type="text" inputmode="numeric"></label>
+        <label>Situación <input id="personSituation" type="text" placeholder="Ej.: ART"></label>
+        <label>Observaciones <input id="personObservations" type="text"></label>
         <label>Servicio <select id="personService"></select></label>
         <label>Estado <select id="personState"><option>Activo</option><option>Inactivo</option></select></label>
         <label>Días <input id="personDays" type="text" placeholder="lunes a viernes"></label>
@@ -148,17 +178,31 @@
 
     <section id="tab-datos" class="panel">
       <div class="card">
-        <h2>Respaldo y compatibilidad con escritorio</h2>
-        <p>La web app lee el mismo formato de <strong>personal.json</strong> que la app de escritorio. En hosting estático, como Vercel sin backend, los cambios quedan en este navegador; exportá los JSON para sincronizarlos con la app de escritorio.</p>
+        <h2>Administración, respaldos e historial</h2>
+        <p>Los datos operativos se guardan en la nube. Esta sección permite exportar, importar, deshacer y generar backups.</p>
         <div class="actions">
           <button id="btnExportBackup">Exportar respaldo completo</button>
           <button id="btnExportPersonal">Exportar personal.json</button>
           <button id="btnExportTurnos">Exportar turnos.json</button>
+          <button id="btnUndoAdmin">Deshacer último cambio</button>
+          <label>Frecuencia backup
+            <select id="backupFrequency">
+              <option value="daily">Diario</option>
+              <option value="weekly">Semanal</option>
+              <option value="monthly">Mensual</option>
+              <option value="manual">Solo manual</option>
+            </select>
+          </label>
+          <button id="btnBackupNow" class="primary">Hacer backup ahora</button>
           <label class="file-label">Importar JSON
             <input id="importFile" type="file" accept="application/json">
           </label>
           <button id="btnResetData" class="danger">Restaurar datos iniciales</button>
         </div>
+        <h2>Historial de cambios</h2>
+        <div class="table-scroll small"><table class="data-table striped" id="historyTable"></table></div>
+        <h2>Backups disponibles</h2>
+        <div class="table-scroll small"><table class="data-table striped" id="backupTable"></table></div>
       </div>
     </section>
   </main>

@@ -4,7 +4,7 @@ const DAYS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado
 const TURNOS = ["", "A", "B", "C", "D"];
 const SERVICES = ["24hs","4hs","6hs","12hs","Rondin","Canes","Diario","Recargo"];
 const FATIGUE_SERVICES = new Set(["12hs","24hs","canes"]);
-const STORAGE_KEY = "shiftManagerWebN6_LOCAL_CACHE";
+const STORAGE_KEY = "shiftManagerWebN7_LOCAL_CACHE";
 const TURNO_REF = parseDMY("18/04/1979");
 const TURNO_SEQ = ["A","B","C","D"];
 const FULL = new Set(["X","H"]);
@@ -12,7 +12,18 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN6";
+const APP_VERSION = "WebN8";
+const PERSONAL_CATALOG_VERSION = 8;
+const PERSONAL_UPDATE_NAMES = new Set([
+  "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
+  "paulo correas", "sala claudio dario", "fernandez raul sebastian", "quattrini lucas",
+  "zalazar fabian alejandro", "gregorio monica beatriz", "avilez claudio", "delgado luciana",
+  "segovia federico", "gallardo gaston", "mire franco", "poblete carolina maria janete",
+  "lovelli georgina", "jadech amira", "martin rebollo", "freda gaston",
+  "daiana gonzalez", "natalia magallanes", "carranza gustavo", "gaston moreira", "rafael leiva"
+]);
+const MAX_CLOUD_BACKUPS = 20;
+const MAX_UNDO_SNAPSHOTS = 10;
 
 let state = null;
 let selectedTurnoAdmin = "A";
@@ -20,6 +31,9 @@ let selectedFixedIndex = null;
 let selectedRot48Index = null;
 let longPressTimer = null;
 let longPressFired = false;
+let lastContentSnapshot = "";
+let saveTimer = null;
+let isRestoringUndo = false;
 
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
 function norm(v){ return String(v||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
@@ -44,6 +58,38 @@ function normalizePersonRecord(p){
     p.asignaciones = p.asignaciones.map(a=>({...a}));
   }
   return p;
+}
+function migratePersonalCatalog(){
+  const currentVersion = Number(state.personal_catalog_version || 0);
+  if(currentVersion >= PERSONAL_CATALOG_VERSION) return false;
+
+  const seedUpdates = new Map(
+    (window.SEED_PERSONAL || [])
+      .filter(p=>PERSONAL_UPDATE_NAMES.has(norm(p.nombre)))
+      .map(p=>[norm(p.nombre), normalizePersonRecord(clone(p))])
+  );
+
+  const positions = new Map((state.personal || []).map((p,i)=>[norm(p.nombre), i]));
+  seedUpdates.forEach((fresh,key)=>{
+    const idx = positions.get(key);
+    if(idx == null){
+      state.personal.push(fresh);
+      return;
+    }
+    const existing = state.personal[idx];
+    state.personal[idx] = normalizePersonRecord({
+      ...existing,
+      ...fresh,
+      // Estado y ausencias son datos operativos mantenidos dentro de la app.
+      estado: existing.estado || fresh.estado || "Activo",
+      ausencias: Array.isArray(existing.ausencias) ? existing.ausencias : (fresh.ausencias || []),
+      turno_24: existing.turno_24 || fresh.turno_24 || ""
+    });
+  });
+
+  state.personal.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  state.personal_catalog_version = PERSONAL_CATALOG_VERSION;
+  return true;
 }
 function todayDMY(){ return formatDMY(new Date()); }
 function pad(n){ return String(n).padStart(2,"0"); }
@@ -124,6 +170,8 @@ async function init(){
   bindPersonal();
   bindTurnos();
   bindDatos();
+  bindDashboard();
+  bindDailyView();
   bindPin();
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -155,14 +203,12 @@ async function startCloudSession(){
   try{
     setStatus("Conectando...", "saving");
     state = await fetchCloudState();
-    state.turnos = normalizeTurnos(state.turnos || {});
-    state.personal = (state.personal || []).map(normalizePersonRecord);
-    state.planilla ||= {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
-    state.app_version = APP_VERSION;
+    normalizeLoadedState();
     q("#lockScreen").classList.add("hidden");
     setStatus("Nube sincronizada", "ok");
+    lastContentSnapshot = contentSnapshot();
     renderAll();
-    save();
+    save({silent:true});
   }catch(err){
     if(err.status === 401){
       q("#lockScreen").classList.remove("hidden");
@@ -172,6 +218,8 @@ async function startCloudSession(){
     const cached = localStorage.getItem(STORAGE_KEY);
     if(cached){
       state = JSON.parse(cached);
+      normalizeLoadedState();
+      lastContentSnapshot = contentSnapshot();
       q("#lockScreen").classList.add("hidden");
       setStatus("Sin nube · usando caché local", "error");
       renderAll();
@@ -193,9 +241,49 @@ async function fetchCloudState(){
   return await res.json();
 }
 
-let saveTimer = null;
-function save(){
+function normalizeLoadedState(){
+  state.turnos = normalizeTurnos(state.turnos || {});
+  state.personal = (state.personal || []).map(normalizePersonRecord);
+  migratePersonalCatalog();
+  state.planilla ||= {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
+  state.planilla.deben ||= Array(12).fill("");
+  state.planilla.rows ||= [];
+  state.history ||= [];
+  state.undoStack = (state.undoStack || []).slice(0, MAX_UNDO_SNAPSHOTS);
+  state.backups = (state.backups || []).slice(0, MAX_CLOUD_BACKUPS);
+  state.backup_settings ||= {frequency:"daily", last_auto_backup_at:""};
+  state.app_version = APP_VERSION;
+}
+function contentState(){
+  return {
+    personal: state.personal || [],
+    turnos: state.turnos || {},
+    planilla: state.planilla || {},
+    backup_settings: state.backup_settings || {frequency:"daily", last_auto_backup_at:""}
+  };
+}
+function contentSnapshot(){ return JSON.stringify(contentState()); }
+function pushHistory(action){
+  state.history ||= [];
+  state.history.unshift({at:new Date().toISOString(), action});
+  state.history = state.history.slice(0,80);
+}
+function registerContentChange(options={}){
+  const current = contentSnapshot();
+  if(lastContentSnapshot && current !== lastContentSnapshot && !options.silent && !isRestoringUndo){
+    state.undoStack ||= [];
+    state.undoStack.unshift({at:new Date().toISOString(), data:JSON.parse(lastContentSnapshot)});
+    state.undoStack = state.undoStack.slice(0, MAX_UNDO_SNAPSHOTS);
+    pushHistory(options.action || "Cambio guardado");
+  }
+  lastContentSnapshot = current;
+}
+function save(options={}){
   if(!state) return;
+  normalizeLoadedState();
+  registerContentChange(options);
+  maybeAutoBackup();
+  lastContentSnapshot = contentSnapshot();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   setStatus("Guardando...", "saving");
   clearTimeout(saveTimer);
@@ -213,6 +301,45 @@ function save(){
     }
   }, 350);
 }
+function restoreContentSnapshot(data){
+  state.personal = (data.personal || []).map(normalizePersonRecord);
+  state.turnos = normalizeTurnos(data.turnos || {});
+  state.planilla = data.planilla || {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
+  state.backup_settings = data.backup_settings || state.backup_settings || {frequency:"daily", last_auto_backup_at:""};
+}
+function undoLastChange(){
+  if(!state.undoStack || !state.undoStack.length) return alert("No hay cambios para deshacer.");
+  const snap = state.undoStack.shift();
+  isRestoringUndo = true;
+  restoreContentSnapshot(snap.data);
+  pushHistory("Deshacer último cambio");
+  lastContentSnapshot = contentSnapshot();
+  isRestoringUndo = false;
+  save({silent:true});
+  renderAll();
+}
+function createBackupNow(reason="manual"){
+  state.backups ||= [];
+  const data = JSON.parse(contentSnapshot());
+  const backup = {id:`backup-${Date.now()}`, at:new Date().toISOString(), reason, data};
+  state.backups.unshift(backup);
+  state.backups = state.backups.slice(0, MAX_CLOUD_BACKUPS);
+  state.backup_settings ||= {frequency:"daily", last_auto_backup_at:""};
+  if(reason !== "manual") state.backup_settings.last_auto_backup_at = backup.at;
+  pushHistory(reason === "manual" ? "Backup manual" : "Backup automático");
+  return backup;
+}
+function maybeAutoBackup(){
+  state.backup_settings ||= {frequency:"daily", last_auto_backup_at:""};
+  const freq = state.backup_settings.frequency || "daily";
+  if(freq === "manual") return;
+  const last = state.backup_settings.last_auto_backup_at ? new Date(state.backup_settings.last_auto_backup_at) : null;
+  const now = new Date();
+  const days = freq === "weekly" ? 7 : freq === "monthly" ? 30 : 1;
+  if(!last || (now - last) >= days*86400000){
+    createBackupNow("auto-" + freq);
+  }
+}
 
 function setStatus(text, mode){
   const badge = q("#statusBadge");
@@ -220,6 +347,12 @@ function setStatus(text, mode){
   badge.textContent = text;
   badge.classList.remove("saving","error","ok");
   if(mode) badge.classList.add(mode);
+}
+async function toggleFullscreen(){
+  try{
+    if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
+    else await document.exitFullscreen();
+  }catch(err){ alert("El navegador no permitió pantalla completa."); }
 }
 
 function fillSelects(){
@@ -254,9 +387,12 @@ function renderAll(){
   if(!state) return;
   renderStaffDatalist();
   renderPlanilla();
+  renderDashboard();
+  renderDailyView();
   renderPersonal();
   renderTurnos();
   renderVacaciones();
+  renderAdminExtras();
 }
 function renderStaffDatalist(){
   const dl = q("#staffList");
@@ -270,19 +406,23 @@ function getStaffNames(){
 function bindPlanilla(){
   q("#btnHideControls").onclick = ()=> document.body.classList.add("focus-table");
   q("#btnShowControls").onclick = ()=> document.body.classList.remove("focus-table");
-  q("#btnAddRow").onclick = ()=> { state.planilla.rows.push(blankRow()); save(); renderPlanilla(); };
-  q("#btnSaveAll").onclick = ()=> { save(); alert("Guardado localmente."); };
+  q("#btnFullscreen").onclick = toggleFullscreen;
+  q("#btnUndoTop").onclick = undoLastChange;
+  window.addEventListener("beforeprint", ()=>{ if(!hasDebens()) document.body.classList.add("hide-empty-deben-print"); });
+  window.addEventListener("afterprint", ()=> document.body.classList.remove("hide-empty-deben-print"));
+  q("#btnAddRow").onclick = ()=> { state.planilla.rows.push(blankRow()); save({action:"Agregar fila"}); renderPlanilla(); };
+  q("#btnSaveAll").onclick = ()=> { save({action:"Guardado manual"}); alert("Guardado en la nube/localmente."); };
   q("#btnLoadDay").onclick = loadDay;
-  q("#btnSort").onclick = ()=> { sortRows(); save(); renderPlanilla(); };
-  q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[]; save(); renderPlanilla(); } };
+  q("#btnSort").onclick = ()=> { sortRows(); save({action:"Ordenar por servicio"}); renderPlanilla(); renderDashboard(); renderDailyView(); };
+  q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[]; save({action:"Limpiar filas"}); renderAll(); } };
   q("#btnPrint").onclick = ()=> window.print();
   q("#btnExportJpg").onclick = exportPlanillaJpg;
   q("#planDate").addEventListener("change", ()=>{
     const d = parseAnyDate(q("#planDate").value);
-    if(d){ state.planilla.fecha=formatDMY(d); state.planilla.dia=dayName(d); state.planilla.turno=turnoFromDate(d); save(); renderPlanilla(); renderTurnos(); }
+    if(d){ state.planilla.fecha=formatDMY(d); state.planilla.dia=dayName(d); state.planilla.turno=turnoFromDate(d); save({action:"Cambiar fecha"}); renderAll(); }
   });
-  q("#planDay").onchange = e=> { state.planilla.dia=e.target.value; save(); };
-  q("#planTurno").onchange = e=> { state.planilla.turno=e.target.value; save(); renderTurnos(); };
+  q("#planDay").onchange = e=> { state.planilla.dia=e.target.value; save({action:"Cambiar día"}); renderDashboard(); renderDailyView(); };
+  q("#planTurno").onchange = e=> { state.planilla.turno=e.target.value; save({action:"Cambiar turno"}); renderTurnos(); renderDashboard(); };
 }
 function blankRow(){ return {nombre:"", servicio:"", cells:Array(12).fill(""), recargo:false}; }
 
@@ -294,19 +434,23 @@ function renderPlanilla(){
   const head = q("#shiftHead");
   head.innerHTML = "";
   const tr1 = document.createElement("tr");
+  tr1.className = "deben-row";
   tr1.innerHTML = `<th class="puestos name-cell" rowspan="2">PUESTOS:</th>`;
   for(let i=0;i<12;i++){
     tr1.innerHTML += `<th class="hour-cell"><input class="deben" data-i="${i}" value="${esc(state.planilla.deben[i]||"")}"></th>`;
   }
   tr1.innerHTML += `<th class="toplabel" colspan="3">&lt;- Deben haber</th>`;
   const tr2 = document.createElement("tr");
-  const hay = calculateHay();
-  for(let i=0;i<12;i++) tr2.innerHTML += `<th class="hour-cell">${hay[i]}</th>`;
+  tr2.className = "hay-row";
+  tr2.innerHTML = `<th class="print-puestos name-cell">PUESTOS:</th>`;
+  const detail = coverageDetail(state.planilla.rows);
+  const hay = detail.map(d=>d.display);
+  for(let i=0;i<12;i++) tr2.innerHTML += `<th class="hour-cell hay-cell" style="${coverageCellStyle(detail[i].value, parseTarget(state.planilla.deben[i]))}">${hay[i]}</th>`;
   tr2.innerHTML += `<th class="toplabel" colspan="3">&lt;- Hay</th>`;
   const tr3 = document.createElement("tr");
   tr3.innerHTML = `<th class="name-cell">Hora:</th>` + HOURS.map(h=>`<th class="hour-cell">${h}</th>`).join("") + `<th class="tiros-cell">Tiros</th><th class="service-cell">Servicio</th><th class="order-cell">Orden</th>`;
   head.append(tr1,tr2,tr3);
-  qa(".deben").forEach(inp => inp.onchange = e=>{ state.planilla.deben[Number(inp.dataset.i)] = e.target.value; save(); });
+  qa(".deben").forEach(inp => inp.onchange = e=>{ state.planilla.deben[Number(inp.dataset.i)] = e.target.value; save({action:"Modificar Deben haber"}); renderDashboard(); renderPlanilla(); });
 
   const body = q("#shiftBody");
   body.innerHTML = "";
@@ -326,10 +470,10 @@ function renderPlanilla(){
   });
 
   body.querySelectorAll("input[data-field='nombre']").forEach(inp=>{
-    inp.onchange = e=> { const row = state.planilla.rows[Number(inp.dataset.r)]; row.nombre=toTitleName(cleanName(e.target.value)); const p = getPerson(row.nombre); if(p && !row.servicio){ row.servicio=p.servicio||""; row.cells=personMarks(p); } save(); renderPlanilla(); };
+    inp.onchange = e=> { const row = state.planilla.rows[Number(inp.dataset.r)]; row.nombre=toTitleName(cleanName(e.target.value)); const p = getPerson(row.nombre); if(p && !row.servicio){ row.servicio=p.servicio||""; row.cells=personMarks(p); } save({action:"Modificar nombre en planilla"}); renderAll(); };
     inp.onclick = e=> { if(e.getModifierState && e.getModifierState("Alt")) toggleRecargo(Number(inp.dataset.r)); };
   });
-  body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{ state.planilla.rows[Number(sel.dataset.r)].servicio=e.target.value; save(); renderPlanilla(); });
+  body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{ state.planilla.rows[Number(sel.dataset.r)].servicio=e.target.value; save({action:"Modificar servicio en planilla"}); renderAll(); });
 
   body.querySelectorAll(".cell-btn").forEach(td=>{
     td.addEventListener("pointerdown", e=>{
@@ -339,7 +483,7 @@ function renderPlanilla(){
         longPressTimer = setTimeout(()=>{
           state.planilla.rows[r].cells[c] = "H";
           longPressFired = true;
-          save(); renderPlanilla();
+          save({action:"Marcar H"}); renderAll();
         }, 550);
       }
     });
@@ -357,7 +501,7 @@ function renderPlanilla(){
         const idx = seq.indexOf(current);
         row.cells[c] = idx >= 0 ? seq[(idx + 1) % seq.length] : "X";
       }
-      save(); renderPlanilla();
+      save({action:"Modificar celda de horario"}); renderAll();
     };
   });
   body.querySelectorAll("button[data-act]").forEach(btn=>{
@@ -367,7 +511,7 @@ function renderPlanilla(){
       if(act==="del") state.planilla.rows.splice(r,1);
       if(act==="up" && r>0) [state.planilla.rows[r-1],state.planilla.rows[r]]=[state.planilla.rows[r],state.planilla.rows[r-1]];
       if(act==="down" && r<state.planilla.rows.length-1) [state.planilla.rows[r+1],state.planilla.rows[r]]=[state.planilla.rows[r],state.planilla.rows[r+1]];
-      save(); renderPlanilla();
+      save({action:"Orden manual de filas"}); renderAll();
     };
   });
 }
@@ -384,17 +528,57 @@ function fatigueCols(row){
   });
   return set;
 }
-function calculateHay(){
+function coverageDetail(rows){
   return HOURS.map((_,c)=>{
     let left=0,right=0;
-    state.planilla.rows.forEach(row=>{
-      const t = token(row.cells[c]);
+    (rows||[]).forEach(row=>{
+      const t = token((row.cells||[])[c]);
       if(t === "X"){ left++; right++; }
       else if(HALF_LEFT.has(t)) left++;
       else if(HALF_RIGHT.has(t)) right++;
     });
-    return left===right ? String(left) : `${left}/${right}`;
+    return {left,right,value:Math.min(left,right), display:left===right ? String(left) : `${left}/${right}`};
   });
+}
+function calculateHay(){ return coverageDetail(state.planilla.rows).map(d=>d.display); }
+function parseTarget(v){
+  const nums = String(v||"").replace(",", ".").match(/\d+(?:\.\d+)?/g);
+  if(!nums || !nums.length) return null;
+  return Math.max(...nums.map(Number));
+}
+function hasDebens(){ return (state.planilla.deben||[]).some(v=>String(v||"").trim()); }
+function coverageRatio(value,target){
+  if(target && target > 0) return Math.max(0, Math.min(value/target, 1));
+  return Math.max(0, Math.min(value/7, 1));
+}
+function coverageCellStyle(value,target){
+  if(target === null || target === undefined || target === 0) return "";
+  const ratio = coverageRatio(value,target);
+  const hue = Math.round(ratio * 120);
+  const light = 86 - Math.round(ratio * 12);
+  return `background:hsl(${hue} 80% ${light}%); color:#111;`;
+}
+function coverageClass(value,target){
+  const ratio = coverageRatio(value,target || 7);
+  if(ratio >= .9) return "ok";
+  if(ratio >= .65) return "warn";
+  return "bad";
+}
+function periodDefs(){
+  return [
+    {key:"manana", label:"Mañana", range:"07-13", idx:[0,1,2]},
+    {key:"tarde", label:"Tarde", range:"13-21", idx:[3,4,5,6]},
+    {key:"noche", label:"Noche", range:"22-07", idx:[7,8,9,10,11]}
+  ];
+}
+function periodScore(detail, indices){
+  const targets = indices.map(i=>parseTarget(state.planilla.deben?.[i])).filter(v=>v && v>0);
+  if(targets.length){
+    let ratios = indices.map(i=>coverageRatio(detail[i].value, parseTarget(state.planilla.deben?.[i]) || Math.max(...targets)));
+    return ratios.reduce((a,b)=>a+b,0)/ratios.length;
+  }
+  let vals = indices.map(i=>detail[i].value);
+  return Math.min((vals.reduce((a,b)=>a+b,0)/vals.length)/7, 1);
 }
 function toggleRecargo(r){
   const row = state.planilla.rows[r];
@@ -432,7 +616,7 @@ function loadDay(){
   });
   addStandardRows(d);
   sortRows();
-  save(); renderAll();
+  save({action:"Cargar personal del día"}); renderAll();
 }
 function addStandardRows(d){
   const turno = state.planilla.turno;
@@ -458,6 +642,54 @@ function addStandardRows(d){
   ["Rondin1","Rondin2","Rondin3"].forEach(n=>{
     state.planilla.rows.push({nombre:n, servicio:"Rondin", cells:marksFromRange("22","07"), recargo:false});
   });
+}
+
+function rowsForDate(d){
+  const saved = {fecha:state.planilla.fecha, dia:state.planilla.dia, turno:state.planilla.turno, rows:state.planilla.rows};
+  const rows = [];
+  try{
+    state.planilla.fecha = formatDMY(d);
+    state.planilla.dia = dayName(d);
+    state.planilla.turno = turnoFromDate(d);
+    state.personal.forEach(p=>{
+      if(norm(p.estado||"Activo")==="inactivo") return;
+      if(isAbsent(p,d)) return;
+      matchingAssignments(p).forEach(a=>{
+        const service = a.servicio || p.servicio || "";
+        if(serviceKey(service)==="24hs") return;
+        rows.push({nombre:p.nombre, servicio:serviceForAssignment(a,p), cells:marksForAssignment(a,p), recargo:false});
+      });
+    });
+    addStandardRowsTo(rows,d,state.planilla.turno);
+    rows.sort((a,b)=>{
+      const rank = s=>{ const k=serviceKey(s); if(k==="24hs")return 0; if(k==="canes")return 1; if(["4hs","6hs","12hs","diario"].includes(k))return 2; if(k==="rondin")return 3; if(k==="recargo")return 4; return 5; };
+      return (a.recargo?4:rank(a.servicio))-(b.recargo?4:rank(b.servicio)) || a.nombre.localeCompare(b.nombre);
+    });
+    return rows;
+  }finally{
+    state.planilla.fecha = saved.fecha;
+    state.planilla.dia = saved.dia;
+    state.planilla.turno = saved.turno;
+    state.planilla.rows = saved.rows;
+  }
+}
+function addStandardRowsTo(rows,d,turno){
+  const existing = new Set(rows.map(r=>norm(r.nombre)));
+  const rotNames = new Set((state.turnos.rotativos_48||[]).map(x=>norm(x.nombre)));
+  (state.turnos.turnos_24?.[turno] || []).forEach(n=>{
+    const name = toTitleName(cleanName(n));
+    if(rotNames.has(norm(name))) return;
+    if(!existing.has(norm(name))){ rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
+  });
+  (state.turnos.rotativos_48||[]).forEach(item=>{
+    if(rotativo48Present(item,d,turno)){
+      const name = toTitleName(cleanName(item.nombre));
+      if(!existing.has(norm(name))){ rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
+    }
+  });
+  const canes = toTitleName(cleanName(state.turnos.canes_por_turno?.[turno] || ""));
+  if(canes && !existing.has(norm(canes))){ rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
+  ["Rondin1","Rondin2","Rondin3"].forEach(n=>rows.push({nombre:n, servicio:"Rondin", cells:marksFromRange("22","07"), recargo:false}));
 }
 
 function isAbsent(p,d){
@@ -545,41 +777,147 @@ function rotativo48Present(item,d,turno){
 }
 function getPerson(name){ return state.personal.find(p=>norm(p.nombre)===norm(name)); }
 
+function bindDashboard(){
+  // No requiere bindings por ahora; se recalcula con renderAll().
+}
+function weekStart(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); return x; }
+function dashboardWeek(){
+  const base = parseDMY(state.planilla.fecha) || new Date();
+  const start = weekStart(base);
+  return Array.from({length:7},(_,i)=>addDays(start,i));
+}
+function dailyOperationalData(d){
+  const rows = rowsForDate(d);
+  const detail = coverageDetail(rows);
+  const periods = periodDefs().map(p=>{
+    const score = periodScore(detail,p.idx);
+    const avg = p.idx.map(i=>detail[i].value).reduce((a,b)=>a+b,0)/p.idx.length;
+    return {...p, score, avg};
+  });
+  const totalScore = periods.reduce((a,b)=>a+b.score,0)/periods.length;
+  return {date:d, rows, detail, periods, totalScore};
+}
+function renderDashboard(){
+  const root = q("#dashboardContent");
+  if(!root) return;
+  const week = dashboardWeek().map(dailyOperationalData);
+  const strongest = [...week].sort((a,b)=>b.totalScore-a.totalScore)[0];
+  const weakest = [...week].sort((a,b)=>a.totalScore-b.totalScore)[0];
+  const alerts = [];
+  week.forEach(day=>{
+    day.detail.forEach((cell,i)=>{
+      const target = parseTarget(state.planilla.deben?.[i]);
+      if(target && cell.value < target){
+        const ratio = coverageRatio(cell.value,target);
+        if(ratio < .65) alerts.push(`${dayName(day.date)} ${HOURS[i]}: ${cell.display} de ${target}`);
+      }
+    });
+  });
+  root.innerHTML = `
+    <div class="dash-grid">
+      <div class="metric-card"><div class="metric-title">Día más fuerte</div><div class="metric-value">${dayName(strongest.date)}</div><div>${formatDMY(strongest.date)}</div></div>
+      <div class="metric-card"><div class="metric-title">Día más débil</div><div class="metric-value">${dayName(weakest.date)}</div><div>${formatDMY(weakest.date)}</div></div>
+      <div class="metric-card"><div class="metric-title">Alertas críticas</div><div class="metric-value">${alerts.length}</div><div>según Deben haber cargado</div></div>
+    </div>
+    <div class="card"><h2>Cobertura por día y franja</h2><div class="period-heatmap" id="periodHeatmap"></div></div>
+    <div class="card"><h2>Detalle por horario</h2><div class="table-scroll"><table class="data-table striped" id="weekHeatTable"></table></div></div>
+    <div class="card"><h2>Ranking semanal</h2><div id="rankingBars"></div></div>
+    <div class="card"><h2>Alertas</h2><div id="dashboardAlerts"></div></div>
+    <div class="card"><h2>Fatiga detectada hoy</h2><div id="dashboardFatigue"></div></div>
+  `;
+  const ph = q("#periodHeatmap");
+  week.forEach(day=>{
+    const row = document.createElement("div"); row.className="period-row";
+    row.innerHTML = `<div class="period-day">${dayName(day.date)}<small>${formatDMY(day.date)}</small></div>` + day.periods.map(p=>`<div class="period-cell ${coverageClass(p.score*7,7)}" style="background:hsl(${Math.round(p.score*120)} 78% ${86-Math.round(p.score*12)}%)"><strong>${p.label}</strong><span>${p.range}</span><em>${formatNum(Math.round(p.avg*10)/10)} prom.</em></div>`).join("");
+    ph.append(row);
+  });
+  const table = q("#weekHeatTable");
+  table.innerHTML = `<tr><th>Día</th>${HOURS.map(h=>`<th>${h}</th>`).join("")}</tr>`;
+  week.forEach(day=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td><strong>${dayName(day.date)}</strong></td>` + day.detail.map((c,i)=>`<td class="mini-heat" style="${coverageCellStyle(c.value, parseTarget(state.planilla.deben?.[i]) || 7)}">${c.display}</td>`).join("");
+    table.append(tr);
+  });
+  const ranking = q("#rankingBars");
+  [...week].sort((a,b)=>b.totalScore-a.totalScore).forEach(day=>{
+    const pct = Math.round(day.totalScore*100);
+    const div=document.createElement("div"); div.className="rank-row";
+    div.innerHTML = `<span>${dayName(day.date)}</span><div class="rank-track"><div class="rank-fill" style="width:${pct}%; background:hsl(${Math.round(day.totalScore*120)} 75% 45%)"></div></div><b>${pct}%</b>`;
+    ranking.append(div);
+  });
+  q("#dashboardAlerts").innerHTML = alerts.length ? `<ul class="alert-list">${alerts.slice(0,30).map(a=>`<li>${esc(a)}</li>`).join("")}</ul>` : `<p class="ok-text">No hay alertas críticas con los Deben haber actuales.</p>`;
+  renderFatigueInto(q("#dashboardFatigue"), state.planilla.rows);
+}
+function renderFatigueInto(container, rows){
+  if(!container) return;
+  const items = (rows||[]).map(r=>({row:r, cols:[...fatigueCols(r)]})).filter(x=>x.cols.length);
+  container.innerHTML = items.length ? `<ul class="alert-list">${items.map(x=>`<li><strong>${esc(x.row.nombre)}</strong>: ${x.cols.map(i=>HOURS[i]).join(", ")}</li>`).join("")}</ul>` : `<p class="ok-text">Sin fatiga detectada.</p>`;
+}
+function bindDailyView(){
+  const search = q("#quickSearch");
+  if(search) search.addEventListener("input", renderDailyView);
+}
+function renderDailyView(){
+  const root = q("#dailyContent"); if(!root) return;
+  const rows = state.planilla.rows || [];
+  const groups = {};
+  rows.forEach(r=>{ const k=r.servicio||"Sin servicio"; (groups[k] ||= []).push(r); });
+  const order = ["24hs","Canes","12hs","6hs","4hs","Diario","Rondin","Recargo","Sin servicio"];
+  const serviceCards = order.filter(k=>groups[k]).map(k=>`<div class="service-card"><h3>${k}</h3>${groups[k].map(r=>`<div class="service-person ${r.recargo?'recargo-name':''}">${esc(r.nombre)} <small>${formatNum(tiros(r))} tiros</small></div>`).join("")}</div>`).join("");
+  const term = norm(q("#quickSearch")?.value || "");
+  const matches = term ? state.personal.filter(p=>norm([p.nombre,p.jerarquia,p.legajo,p.servicio,p.dias,p.observaciones,p.situacion].join(" ")).includes(term)).slice(0,20) : [];
+  q("#dailyServices").innerHTML = serviceCards || `<p>No hay filas cargadas. Usá “Cargar personal del día”.</p>`;
+  q("#searchResults").innerHTML = !term ? "" : (matches.length ? matches.map(p=>`<div class="search-hit"><strong>${esc(p.nombre)}</strong><span>${esc(p.jerarquia||"")}${p.legajo?" · Legajo "+esc(p.legajo):""} · ${esc(p.servicio||"")} · ${esc(p.dias||"")} · ${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}${p.situacion?" · "+esc(p.situacion):""} · ${esc(p.estado||"Activo")}</span></div>`).join("") : `<p>Sin resultados.</p>`);
+  renderFatigueInto(q("#dailyFatigue"), rows);
+}
+
 function bindPersonal(){
   q("#btnSavePerson").onclick = savePerson;
   q("#btnNewPerson").onclick = clearPersonForm;
 }
 function renderPersonal(){
   const table = q("#personalTable");
-  table.innerHTML = `<tr><th>Nombre</th><th>Servicio</th><th>Estado</th><th>Días</th><th>Horario</th></tr>`;
+  table.innerHTML = `<tr><th>Nombre</th><th>Jerarquía</th><th>Legajo</th><th>Servicio</th><th>Estado</th><th>Días</th><th>Horario</th><th>Observaciones</th></tr>`;
   state.personal.forEach((p,i)=>{
     const tr=document.createElement("tr");
     if(norm(p.estado)==="inactivo") tr.classList.add("inactive-row");
-    tr.innerHTML = `<td>${esc(p.nombre)}</td><td>${esc(p.servicio)}</td><td>${esc(p.estado||"Activo")}</td><td>${esc(p.dias||"")}</td><td>${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}</td>`;
+    const obs = [p.situacion,p.observaciones].filter(Boolean).join(" · ");
+    tr.innerHTML = `<td>${esc(p.nombre)}</td><td>${esc(p.jerarquia||"")}</td><td>${esc(p.legajo||"")}</td><td>${esc(p.servicio)}</td><td>${esc(p.estado||"Activo")}</td><td>${esc(p.dias||"")}</td><td>${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}</td><td>${esc(obs)}</td>`;
     tr.onclick=()=>loadPersonForm(i);
     table.append(tr);
   });
 }
 function loadPersonForm(i){
-  const p=state.personal[i]; q("#personName").value=p.nombre||""; q("#personService").value=p.servicio||"24hs"; q("#personState").value=p.estado||"Activo";
+  const p=state.personal[i]; q("#personName").value=p.nombre||""; q("#personHierarchy").value=p.jerarquia||""; q("#personLegajo").value=p.legajo||""; q("#personSituation").value=p.situacion||""; q("#personObservations").value=p.observaciones||""; q("#personService").value=p.servicio||"24hs"; q("#personState").value=p.estado||"Activo";
   q("#personDays").value=p.dias||""; q("#personStart").value=p.hora_inicio||""; q("#personEnd").value=p.hora_fin||""; q("#personTurno").value=p.turno_24||"";
   q("#personMode").value=p.modalidad||"Fijo"; q("#rotAStart").value=p.rotativo_a_inicio||""; q("#rotAEnd").value=p.rotativo_a_fin||"";
   q("#rotBStart").value=p.rotativo_b_inicio||""; q("#rotBEnd").value=p.rotativo_b_fin||""; q("#rotBase").value=dmyToISO(p.fecha_base_rotacion||"");
 }
-function clearPersonForm(){ ["personName","personDays","personStart","personEnd","personTurno","rotAStart","rotAEnd","rotBStart","rotBEnd","rotBase"].forEach(id=>q("#"+id).value=""); q("#personService").value="24hs"; q("#personState").value="Activo"; q("#personMode").value="Fijo"; }
+function clearPersonForm(){ ["personName","personHierarchy","personLegajo","personSituation","personObservations","personDays","personStart","personEnd","personTurno","rotAStart","rotAEnd","rotBStart","rotBEnd","rotBase"].forEach(id=>q("#"+id).value=""); q("#personService").value="24hs"; q("#personState").value="Activo"; q("#personMode").value="Fijo"; }
 function savePerson(){
   const name=toTitleName(cleanName(q("#personName").value.trim())); if(!name) return alert("Ingresá un nombre.");
+  const idx=state.personal.findIndex(x=>norm(x.nombre)===norm(name));
+  const existing=idx>=0 ? state.personal[idx] : null;
   const p = {
-    nombre:name, servicio:q("#personService").value, estado:q("#personState").value, dias:q("#personDays").value,
+    nombre:name,
+    jerarquia:q("#personHierarchy").value.trim(),
+    legajo:q("#personLegajo").value.trim(),
+    situacion:q("#personSituation").value.trim(),
+    observaciones:q("#personObservations").value.trim(),
+    servicio:q("#personService").value, estado:q("#personState").value, dias:q("#personDays").value,
     hora_inicio:q("#personStart").value, hora_fin:q("#personEnd").value, turno_24:q("#personTurno").value,
     modalidad:q("#personMode").value, rotativo_a_inicio:q("#rotAStart").value, rotativo_a_fin:q("#rotAEnd").value,
     rotativo_b_inicio:q("#rotBStart").value, rotativo_b_fin:q("#rotBEnd").value, fecha_base_rotacion:isoToDMY(q("#rotBase").value),
-    ausencias: getPerson(name)?.ausencias || []
+    ausencias: existing?.ausencias || []
   };
-  p.asignaciones = [{dias:p.dias,hora_inicio:p.hora_inicio,hora_fin:p.hora_fin,servicio:p.servicio,modalidad:p.modalidad,rotativo_a_inicio:p.rotativo_a_inicio,rotativo_a_fin:p.rotativo_a_fin,rotativo_b_inicio:p.rotativo_b_inicio,rotativo_b_fin:p.rotativo_b_fin,fecha_base_rotacion:p.fecha_base_rotacion}];
-  const idx=state.personal.findIndex(x=>norm(x.nombre)===norm(name)); if(idx>=0) state.personal[idx]=p; else state.personal.push(p);
+  const scheduleKeys=["servicio","dias","hora_inicio","hora_fin","modalidad","rotativo_a_inicio","rotativo_a_fin","rotativo_b_inicio","rotativo_b_fin","fecha_base_rotacion"];
+  const scheduleUnchanged = existing && scheduleKeys.every(k=>String(existing[k]||"")===String(p[k]||""));
+  p.asignaciones = scheduleUnchanged && Array.isArray(existing.asignaciones)
+    ? clone(existing.asignaciones)
+    : [{dias:p.dias,hora_inicio:p.hora_inicio,hora_fin:p.hora_fin,servicio:p.servicio,modalidad:p.modalidad,rotativo_a_inicio:p.rotativo_a_inicio,rotativo_a_fin:p.rotativo_a_fin,rotativo_b_inicio:p.rotativo_b_inicio,rotativo_b_fin:p.rotativo_b_fin,fecha_base_rotacion:p.fecha_base_rotacion,observaciones:p.observaciones}];
+  if(idx>=0) state.personal[idx]=normalizePersonRecord(p); else state.personal.push(normalizePersonRecord(p));
   state.personal.sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  save(); renderAll(); clearPersonForm();
+  save({action:"Actualizar personal"}); renderAll(); clearPersonForm();
 }
 
 function bindTurnos(){
@@ -649,6 +987,9 @@ function bindDatos(){
   q("#btnExportBackup").onclick=()=> downloadJson("shift_manager_respaldo.json", state);
   q("#btnExportPersonal").onclick=()=> downloadJson("personal.json", state.personal);
   q("#btnExportTurnos").onclick=()=> downloadJson("turnos.json", state.turnos);
+  q("#btnUndoAdmin").onclick=undoLastChange;
+  q("#btnBackupNow").onclick=()=>{ createBackupNow("manual"); save({silent:true}); renderAdminExtras(); alert("Backup creado."); };
+  q("#backupFrequency").onchange=e=>{ state.backup_settings ||= {}; state.backup_settings.frequency=e.target.value; save({action:"Cambiar frecuencia de backup"}); renderAdminExtras(); };
   q("#importFile").onchange=e=>{
     const file=e.target.files[0]; if(!file)return;
     const reader=new FileReader();
@@ -658,7 +999,8 @@ function bindDatos(){
         if(Array.isArray(data)){
           state.personal = data.map(normalizePersonRecord);
         }else if(data.personal && data.turnos){
-          state = data;
+          const preserved = {history:state.history||[], backups:state.backups||[], undoStack:state.undoStack||[], backup_settings:state.backup_settings};
+          state = {...data, ...preserved};
           state.personal = (state.personal||[]).map(normalizePersonRecord);
           state.turnos = normalizeTurnos(state.turnos || {});
         }else if(data.turnos_24 || data.canes_por_turno || data.rotativos_48){
@@ -666,25 +1008,44 @@ function bindDatos(){
         }else{
           throw new Error("Formato no reconocido");
         }
-        save(); renderAll(); alert("Datos importados.");
+        save({action:"Importar JSON"}); renderAll(); alert("Datos importados.");
       }catch(err){ alert("Archivo inválido: " + err.message); } 
     };
     reader.readAsText(file);
   };
-  q("#btnResetData").onclick=()=>{ if(confirm("¿Restaurar datos iniciales?")){ localStorage.removeItem(STORAGE_KEY); state=loadState(); renderAll(); } };
+  q("#btnResetData").onclick=()=>{ if(confirm("¿Restaurar datos iniciales?")){ localStorage.removeItem(STORAGE_KEY); state=loadState(); normalizeLoadedState(); save({action:"Restaurar datos iniciales"}); renderAll(); } };
+}
+function renderAdminExtras(){
+  if(!state) return;
+  const freq = q("#backupFrequency");
+  if(freq) freq.value = state.backup_settings?.frequency || "daily";
+  const hist = q("#historyTable");
+  if(hist){
+    hist.innerHTML = `<tr><th>Fecha</th><th>Acción</th></tr>` + (state.history||[]).slice(0,30).map(h=>`<tr><td>${new Date(h.at).toLocaleString()}</td><td>${esc(h.action)}</td></tr>`).join("");
+  }
+  const backups = q("#backupTable");
+  if(backups){
+    backups.innerHTML = `<tr><th>Fecha</th><th>Tipo</th><th>Descarga</th></tr>` + (state.backups||[]).slice(0,20).map(b=>`<tr><td>${new Date(b.at).toLocaleString()}</td><td>${esc(b.reason)}</td><td><button data-backup="${b.id}">JSON</button></td></tr>`).join("");
+    backups.querySelectorAll("button[data-backup]").forEach(btn=>btn.onclick=()=>{
+      const b=(state.backups||[]).find(x=>x.id===btn.dataset.backup); if(b) downloadJson(`${b.id}.json`, b.data);
+    });
+  }
 }
 function downloadJson(name, data){
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
 }
 function exportPlanillaJpg(){
-  const hay = calculateHay();
+  const detail = coverageDetail(state.planilla.rows);
+  const hay = detail.map(d=>d.display);
+  const includeDeb = hasDebens();
   const scale = 3;
   const colW = [170, ...Array(12).fill(46), 48, 105];
   const rowH = 28, margin = 24, titleH = 42;
   const rows = state.planilla.rows;
+  const headerRows = includeDeb ? 3 : 2;
   const w = (colW.reduce((a,b)=>a+b,0) + margin*2) * scale;
-  const h = (titleH + rowH*3 + rowH*rows.length + margin*2) * scale;
+  const h = (titleH + rowH*headerRows + rowH*rows.length + margin*2) * scale;
   const canvas = document.createElement("canvas");
   canvas.width=w; canvas.height=h;
   const ctx=canvas.getContext("2d");
@@ -695,6 +1056,11 @@ function exportPlanillaJpg(){
   ctx.fillText(title, margin, margin+14);
   let x0=margin, y0=margin+titleH;
   const blue="#315a9f", blue2="#4778c7", red="#ff8a80", light="#efefef";
+  function colorFor(value,target){
+    if(!target) return blue;
+    const ratio=coverageRatio(value,target), hue=Math.round(ratio*120), lit=86-Math.round(ratio*12);
+    return `hsl(${hue} 80% ${lit}%)`;
+  }
   function cell(x,y,w,h,text,fill="#fff",color="#111",bold=false,fs=11){
     ctx.fillStyle=fill; ctx.fillRect(x,y,w,h); ctx.strokeStyle="#111"; ctx.strokeRect(x,y,w,h);
     if(text){
@@ -702,14 +1068,24 @@ function exportPlanillaJpg(){
       ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(String(text), x+w/2, y+h/2);
     }
   }
-  cell(x0,y0,colW[0],rowH*2,"PUESTOS:","#fff","#111",true,12);
-  let x=x0+colW[0];
-  for(let i=0;i<12;i++){ cell(x,y0,colW[i+1],rowH,state.planilla.deben[i]||"",blue2,"#fff",true); x+=colW[i+1]; }
-  cell(x,y0,colW[13]+colW[14],rowH,"<- Deben haber",light,"#111",true);
-  x=x0+colW[0];
-  for(let i=0;i<12;i++){ cell(x,y0+rowH,colW[i+1],rowH,hay[i],blue,"#fff",true); x+=colW[i+1]; }
-  cell(x,y0+rowH,colW[13]+colW[14],rowH,"<- Hay",light,"#111",true);
-  let y=y0+rowH*2; x=x0;
+  let x=x0;
+  if(includeDeb){
+    cell(x0,y0,colW[0],rowH*2,"PUESTOS:","#fff","#111",true,12);
+    x=x0+colW[0];
+    for(let i=0;i<12;i++){ cell(x,y0,colW[i+1],rowH,state.planilla.deben[i]||"",blue2,"#fff",true); x+=colW[i+1]; }
+    cell(x,y0,colW[13]+colW[14],rowH,"<- Deben haber",light,"#111",true);
+    x=x0+colW[0];
+    for(let i=0;i<12;i++){ const target=parseTarget(state.planilla.deben[i]); cell(x,y0+rowH,colW[i+1],rowH,hay[i],colorFor(detail[i].value,target),"#111",true); x+=colW[i+1]; }
+    cell(x,y0+rowH,colW[13]+colW[14],rowH,"<- Hay",light,"#111",true);
+    y0 += rowH*2;
+  }else{
+    cell(x0,y0,colW[0],rowH,"PUESTOS:","#fff","#111",true,12);
+    x=x0+colW[0];
+    for(let i=0;i<12;i++){ cell(x,y0,colW[i+1],rowH,hay[i],blue,"#fff",true); x+=colW[i+1]; }
+    cell(x,y0,colW[13]+colW[14],rowH,"<- Hay",light,"#111",true);
+    y0 += rowH;
+  }
+  let y=y0; x=x0;
   cell(x,y,colW[0],rowH,"Hora:",blue,"#fff",true); x+=colW[0];
   HOURS.forEach((hr,i)=>{ cell(x,y,colW[i+1],rowH,hr,blue,"#fff",true); x+=colW[i+1]; });
   cell(x,y,colW[13],rowH,"Tiros",blue,"#fff",true); x+=colW[13];

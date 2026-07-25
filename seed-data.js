@@ -93,7 +93,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "48 HS",
         "observaciones": ""
       }
-    ]
+    ],
+    "legajo": "349.585",
+    "situacion": ""
   },
   {
     "nombre": "Barrera Hugo",
@@ -131,7 +133,7 @@ window.SEED_PERSONAL = [
   },
   {
     "nombre": "Carranza Gustavo",
-    "jerarquia": "SUBOF MYR (E.G)",
+    "jerarquia": "SUBOF. MYR. (E.G.)",
     "servicio": "Diario",
     "dias": "DOM O SAB, LUNES Y MIERCOLES",
     "hora_inicio": "07",
@@ -161,11 +163,13 @@ window.SEED_PERSONAL = [
         "texto_horario": "07 A 17",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Casaus Coria Cesar Oscar",
-    "jerarquia": "ALCAIDE (E.G.)",
+    "jerarquia": "SUBOF. MYR. (E.G.)",
     "servicio": "Diario",
     "dias": "MIERCOLES A DOMINGO",
     "hora_inicio": "22",
@@ -195,7 +199,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "22 A 05",
         "observaciones": "TODO EL MES"
       }
-    ]
+    ],
+    "legajo": "329.648",
+    "situacion": ""
   },
   {
     "nombre": "Cepeda Miguel",
@@ -243,7 +249,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 19",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "670.522",
+    "situacion": ""
   },
   {
     "nombre": "Clarisa Reyna",
@@ -277,7 +285,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "19 A 23",
         "observaciones": "MATERNIDAD"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Cristina Ayala",
@@ -315,7 +325,7 @@ window.SEED_PERSONAL = [
   },
   {
     "nombre": "Daiana Gonzalez",
-    "jerarquia": "SGTO. AYTE (E.G.)",
+    "jerarquia": "SGTO. AYTE. (E.G.)",
     "servicio": "Diario",
     "dias": "LUNES A VIERNES",
     "hora_inicio": "20",
@@ -345,7 +355,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "20 A 03",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Delgado Luciana",
@@ -379,7 +391,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "12:00 A 22:00",
         "observaciones": "MATERNIDAD"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Diaz Walter",
@@ -451,7 +465,7 @@ window.SEED_PERSONAL = [
   },
   {
     "nombre": "Fernandez Raul Sebastian",
-    "jerarquia": "SARGENTO (E.G)",
+    "jerarquia": "SUBOF. MYR. (E.G.)",
     "servicio": "Diario",
     "dias": "LUNES A VIERNES",
     "hora_inicio": "13",
@@ -481,11 +495,13 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 21",
         "observaciones": ""
       }
-    ]
+    ],
+    "legajo": "607.905",
+    "situacion": ""
   },
   {
     "nombre": "Freda Gaston",
-    "jerarquia": "SUBOF MYR (E.G)",
+    "jerarquia": "SUBOF. MYR. (E.G.)",
     "servicio": "6hs",
     "dias": "LUNES, MIERCOLES Y VIERNES\nMARTES Y JUEVES",
     "hora_inicio": "07",
@@ -529,7 +545,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "13:00 A 19:00",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Gallardo Gaston",
@@ -563,13 +581,15 @@ window.SEED_PERSONAL = [
         "texto_horario": "07 A 13",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "607.940",
+    "situacion": ""
   },
   {
     "nombre": "Gaston Moreira",
-    "jerarquia": "SUBOF MYR (E.G)",
+    "jerarquia": "SUBOF. MYR. (E.G.)",
     "servicio": "12hs",
-    "dias": "MARTES JUEVES Y DOMINGO",
+    "dias": "MARTES, JUEVES Y DOMINGO",
     "hora_inicio": "07",
     "hora_fin": "19",
     "turno_24": "",
@@ -584,7 +604,7 @@ window.SEED_PERSONAL = [
     "ausencias": [],
     "asignaciones": [
       {
-        "dias": "MARTES JUEVES Y DOMINGO",
+        "dias": "MARTES, JUEVES Y DOMINGO",
         "hora_inicio": "07",
         "hora_fin": "19",
         "servicio": "12hs",
@@ -597,11 +617,13 @@ window.SEED_PERSONAL = [
         "texto_horario": "07 A 19",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Gregorio Monica Beatriz",
-    "jerarquia": "SUBOF. PPAL (E.G.)",
+    "jerarquia": "SUBOF. PPAL. (E.G.)",
     "servicio": "24hs",
     "dias": "SABADO\nDOMINGO\nLUNES",
     "hora_inicio": "",
@@ -628,7 +650,7 @@ window.SEED_PERSONAL = [
         "rotativo_b_inicio": "",
         "rotativo_b_fin": "",
         "fecha_base_rotacion": "",
-        "texto_horario": "24 HS",
+        "texto_horario": "24 HRS",
         "observaciones": "RESTRICCIONES"
       },
       {
@@ -659,7 +681,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "07 A 13",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "348.381",
+    "situacion": ""
   },
   {
     "nombre": "Jadech Amira",
@@ -693,7 +717,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "19 A 23",
         "observaciones": "MATERNIDAD"
       }
-    ]
+    ],
+    "legajo": "667.055",
+    "situacion": ""
   },
   {
     "nombre": "Lastra Cesar Maximiliano",
@@ -732,10 +758,10 @@ window.SEED_PERSONAL = [
   {
     "nombre": "Lovelli Georgina",
     "jerarquia": "ADJUTOR (E.G.)",
-    "servicio": "4hs",
-    "dias": "LUNES A VIERNES (ADM)",
-    "hora_inicio": "07",
-    "hora_fin": "11",
+    "servicio": "6hs",
+    "dias": "MARTES Y VIERNES\nSABADO",
+    "hora_inicio": "15",
+    "hora_fin": "21",
     "turno_24": "",
     "modalidad": "Fijo",
     "rotativo_a_inicio": "",
@@ -748,20 +774,36 @@ window.SEED_PERSONAL = [
     "ausencias": [],
     "asignaciones": [
       {
-        "dias": "LUNES A VIERNES (ADM)",
-        "hora_inicio": "07",
-        "hora_fin": "11",
-        "servicio": "4hs",
+        "dias": "MARTES Y VIERNES",
+        "hora_inicio": "15",
+        "hora_fin": "21",
+        "servicio": "6hs",
         "modalidad": "Fijo",
         "rotativo_a_inicio": "",
         "rotativo_a_fin": "",
         "rotativo_b_inicio": "",
         "rotativo_b_fin": "",
         "fecha_base_rotacion": "",
-        "texto_horario": "07 A 11",
+        "texto_horario": "15 A 21",
+        "observaciones": "MATERNIDAD"
+      },
+      {
+        "dias": "SABADO",
+        "hora_inicio": "15",
+        "hora_fin": "23",
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "rotativo_a_inicio": "",
+        "rotativo_a_fin": "",
+        "rotativo_b_inicio": "",
+        "rotativo_b_fin": "",
+        "fecha_base_rotacion": "",
+        "texto_horario": "15 A 23",
         "observaciones": "MATERNIDAD"
       }
-    ]
+    ],
+    "legajo": "670.868",
+    "situacion": ""
   },
   {
     "nombre": "Martin Rebollo",
@@ -795,7 +837,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 19",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "357.967",
+    "situacion": ""
   },
   {
     "nombre": "Mire Franco",
@@ -843,13 +887,15 @@ window.SEED_PERSONAL = [
         "texto_horario": "07:00 A 13:00",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "663.867",
+    "situacion": ""
   },
   {
     "nombre": "Natalia Magallanes",
-    "jerarquia": "PPAL (E.G)",
+    "jerarquia": "PPAL. (E.G.)",
     "servicio": "Diario",
-    "dias": "LUNES A VIERNES (PUESTO 1)",
+    "dias": "LUNES A VIERNES",
     "hora_inicio": "07",
     "hora_fin": "14",
     "turno_24": "",
@@ -859,12 +905,12 @@ window.SEED_PERSONAL = [
     "rotativo_b_inicio": "",
     "rotativo_b_fin": "",
     "fecha_base_rotacion": "",
-    "observaciones": "RESTRICCIONES\nSERVICIO",
+    "observaciones": "SERVICIO",
     "estado": "Activo",
     "ausencias": [],
     "asignaciones": [
       {
-        "dias": "LUNES A VIERNES (PUESTO 1)",
+        "dias": "LUNES A VIERNES",
         "hora_inicio": "07",
         "hora_fin": "14",
         "servicio": "Diario",
@@ -875,9 +921,11 @@ window.SEED_PERSONAL = [
         "rotativo_b_fin": "",
         "fecha_base_rotacion": "",
         "texto_horario": "07 A 14",
-        "observaciones": "RESTRICCIONES\nSERVICIO"
+        "observaciones": "SERVICIO"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Paulo Correas",
@@ -925,15 +973,17 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 19",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Perez Vanessa Laura",
-    "jerarquia": "ALCAIDE (E.G.)",
-    "servicio": "6hs",
-    "dias": "LUNES A VIERNES",
-    "hora_inicio": "13",
-    "hora_fin": "19",
+    "jerarquia": "SGTO. AYTE. (E.G.)",
+    "servicio": "Diario",
+    "dias": "MARTES A SABADO",
+    "hora_inicio": "07",
+    "hora_fin": "14",
     "turno_24": "",
     "modalidad": "Fijo",
     "rotativo_a_inicio": "",
@@ -946,20 +996,22 @@ window.SEED_PERSONAL = [
     "ausencias": [],
     "asignaciones": [
       {
-        "dias": "LUNES A VIERNES",
-        "hora_inicio": "13",
-        "hora_fin": "19",
-        "servicio": "6hs",
+        "dias": "MARTES A SABADO",
+        "hora_inicio": "07",
+        "hora_fin": "14",
+        "servicio": "Diario",
         "modalidad": "Fijo",
         "rotativo_a_inicio": "",
         "rotativo_a_fin": "",
         "rotativo_b_inicio": "",
         "rotativo_b_fin": "",
         "fecha_base_rotacion": "",
-        "texto_horario": "13 A 19",
+        "texto_horario": "07 A 14",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "352.312",
+    "situacion": "ART"
   },
   {
     "nombre": "Poblete Carolina Maria Janete",
@@ -993,11 +1045,13 @@ window.SEED_PERSONAL = [
         "texto_horario": "19 A 23",
         "observaciones": "MATERNIDAD"
       }
-    ]
+    ],
+    "legajo": "367.299",
+    "situacion": ""
   },
   {
     "nombre": "Quattrini Lucas",
-    "jerarquia": "SGTO. AYTE. (E.G.)",
+    "jerarquia": "SARGENTO (E.G.)",
     "servicio": "6hs",
     "dias": "LUNES, MIERCOLES Y VIERNES\nMARTES Y JUEVES",
     "hora_inicio": "07",
@@ -1041,13 +1095,15 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 19",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "620.481",
+    "situacion": ""
   },
   {
     "nombre": "Rafael Leiva",
-    "jerarquia": "SGTO AYTE (E.G)",
+    "jerarquia": "SGTO. AYTE. (E.G.)",
     "servicio": "12hs",
-    "dias": "LUNES Y MIERCOLES\nSABADO O DOMINGO (ROTATIV)",
+    "dias": "LUNES Y MIERCOLES\nSABADO O DOMINGO (ROTATIVO)",
     "hora_inicio": "07",
     "hora_fin": "19",
     "turno_24": "",
@@ -1076,7 +1132,7 @@ window.SEED_PERSONAL = [
         "observaciones": "RESTRICCIONES"
       },
       {
-        "dias": "SABADO O DOMINGO (ROTATIV)",
+        "dias": "SABADO O DOMINGO (ROTATIVO)",
         "hora_inicio": "07",
         "hora_fin": "13",
         "servicio": "6hs",
@@ -1090,7 +1146,9 @@ window.SEED_PERSONAL = [
         "observaciones": "RESTRICCIONES",
         "dias_rotativos": true
       }
-    ]
+    ],
+    "legajo": "",
+    "situacion": ""
   },
   {
     "nombre": "Riveros Laura",
@@ -1158,13 +1216,15 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 01",
         "observaciones": ""
       }
-    ]
+    ],
+    "legajo": "358.349",
+    "situacion": ""
   },
   {
     "nombre": "Segovia Federico",
     "jerarquia": "ALCAIDE (E.G.)",
     "servicio": "6hs",
-    "dias": "LUNES A VIERNES (ROTATIVO)\nSABADO",
+    "dias": "LUNES A VIERNES (ROTATIVO)\nSABADO (ROTATIVO)",
     "hora_inicio": "07",
     "hora_fin": "13",
     "turno_24": "",
@@ -1179,7 +1239,7 @@ window.SEED_PERSONAL = [
     "ausencias": [],
     "asignaciones": [
       {
-        "dias": "LUNES A VIERNES (ROTATIVO)\nSABADO",
+        "dias": "LUNES A VIERNES",
         "hora_inicio": "07",
         "hora_fin": "13",
         "servicio": "6hs",
@@ -1189,10 +1249,26 @@ window.SEED_PERSONAL = [
         "rotativo_b_inicio": "13",
         "rotativo_b_fin": "19",
         "fecha_base_rotacion": "06/07/2026",
-        "texto_horario": "07 A 13",
-        "observaciones": ""
+        "texto_horario": "07 A 13 / 13 A 19",
+        "observaciones": "RESTRICCIONES"
+      },
+      {
+        "dias": "SABADO",
+        "hora_inicio": "07",
+        "hora_fin": "12",
+        "servicio": "Diario",
+        "modalidad": "Rotativo semanal",
+        "rotativo_a_inicio": "07",
+        "rotativo_a_fin": "12",
+        "rotativo_b_inicio": "14",
+        "rotativo_b_fin": "19",
+        "fecha_base_rotacion": "06/07/2026",
+        "texto_horario": "07 A 12 / 14 A 19",
+        "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "legajo": "658.455",
+    "situacion": ""
   },
   {
     "nombre": "Valdez Carmen",
@@ -1230,7 +1306,7 @@ window.SEED_PERSONAL = [
   },
   {
     "nombre": "Zalazar Fabian Alejandro",
-    "jerarquia": "SUBOF. PPAL (E.G.)",
+    "jerarquia": "SGTO. AYTE. (E.G.)",
     "servicio": "Diario",
     "dias": "MIERCOLES, VIERNES Y SABADO",
     "hora_inicio": "21",
@@ -1260,7 +1336,9 @@ window.SEED_PERSONAL = [
         "texto_horario": "21 A 07",
         "observaciones": ""
       }
-    ]
+    ],
+    "legajo": "357.630",
+    "situacion": ""
   }
 ];
 

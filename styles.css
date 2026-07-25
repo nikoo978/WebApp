@@ -182,3 +182,25 @@ input[type="date"]{
     min-width:150px;
   }
 }
+
+
+/* WebN7 dashboard / visual control */
+.print-puestos{display:none!important}
+.hay-cell{font-weight:800}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.75rem;margin:.5rem 0}
+.metric-card{background:white;border:1px solid #c8c8c8;border-radius:10px;padding:1rem;box-shadow:0 1px 2px #0001}
+.metric-title{font-size:.8rem;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.metric-value{font-size:1.4rem;font-weight:800;margin:.25rem 0}
+.period-heatmap{display:grid;gap:.45rem}
+.period-row{display:grid;grid-template-columns:130px repeat(3,1fr);gap:.45rem;align-items:stretch}
+.period-day{font-weight:800;background:#f2f2f2;border:1px solid #ccc;border-radius:8px;padding:.55rem;display:flex;flex-direction:column;justify-content:center}
+.period-day small{font-weight:500;color:#555}
+.period-cell{border:1px solid #aaa;border-radius:8px;padding:.55rem;display:flex;flex-direction:column;gap:.1rem;text-align:center;min-height:64px}
+.period-cell strong{font-size:.95rem}.period-cell span{font-size:.8rem}.period-cell em{font-size:.78rem;font-style:normal;font-weight:700}
+.mini-heat{text-align:center!important;font-weight:800}
+.rank-row{display:grid;grid-template-columns:110px 1fr 45px;gap:.5rem;align-items:center;margin:.35rem 0}
+.rank-track{height:18px;background:#eee;border-radius:999px;overflow:hidden;border:1px solid #ccc}.rank-fill{height:100%}
+.alert-list{margin:.2rem 0;padding-left:1.2rem}.alert-list li{margin:.25rem 0}.ok-text{color:#147a37;font-weight:700}
+.service-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem}.service-card{border:1px solid #ccc;border-radius:10px;background:#fafafa;padding:.75rem}.service-card h3{margin:.1rem 0 .5rem;color:#315a9f}.service-person{padding:.35rem;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;gap:.5rem}.service-person small{color:#555}.wide-input{width:100%;min-height:42px;padding:.5rem}.search-results{margin-top:.5rem}.search-hit{border-bottom:1px solid #e0e0e0;padding:.55rem 0;display:flex;flex-direction:column}.search-hit span{color:#555;font-size:.88rem}
+@media (max-width:700px){.period-row{grid-template-columns:1fr}.period-cell{text-align:left}.rank-row{grid-template-columns:90px 1fr 38px}}
+@media print{body.hide-empty-deben-print .deben-row{display:none!important}body.hide-empty-deben-print .print-puestos{display:table-cell!important}.show-controls{display:none!important}}
