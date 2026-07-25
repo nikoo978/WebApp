@@ -12,7 +12,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN9";
+const APP_VERSION = "WebN9.1";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -416,8 +416,69 @@ function renderStaffDatalist(){
   dl.innerHTML = "";
   getStaffNames().forEach(n=> dl.append(Object.assign(document.createElement("option"), {value:n})));
 }
+function operationalStaffProfiles(){
+  const profiles = new Map();
+  const add = (rawName, servicio, turno, origen)=>{
+    const nombre = toTitleName(cleanName(rawName));
+    if(!nombre) return;
+    const key = norm(nombre);
+    const current = profiles.get(key) || {nombre, servicio:servicio || "", turnos:new Set(), origenes:new Set()};
+    if(servicio === "Canes") current.servicio = "Canes";
+    else if(!current.servicio) current.servicio = servicio || "24hs";
+    if(turno) current.turnos.add(turno);
+    if(origen) current.origenes.add(origen);
+    profiles.set(key,current);
+  };
+  for(const turno of TURNO_SEQ){
+    (state.turnos?.turnos_24?.[turno] || []).forEach(name=>add(name,"24hs",turno,"Turno fijo"));
+    add(state.turnos?.canes_por_turno?.[turno],"Canes",turno,"Canes");
+  }
+  (state.turnos?.rotativos_48 || []).forEach(item=>{
+    (item.turnos || []).forEach(turno=>add(item.nombre,"24hs",turno,"Rotativo 48"));
+  });
+  return [...profiles.values()].map(p=>({...p,turnos:[...p.turnos],origenes:[...p.origenes]}));
+}
 function getStaffNames(){
-  return state.personal.filter(p=> norm(p.estado||"Activo") !== "inactivo").map(p=>p.nombre).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  const names = new Map();
+  (state.personal || []).forEach(p=>{
+    if(norm(p.estado||"Activo") !== "inactivo" && p.nombre) names.set(norm(p.nombre),p.nombre);
+  });
+  operationalStaffProfiles().forEach(p=>{
+    const existing = personByName(p.nombre);
+    if(existing && norm(existing.estado||"Activo") === "inactivo") return;
+    if(!names.has(norm(p.nombre))) names.set(norm(p.nombre),p.nombre);
+  });
+  return [...names.values()].sort((a,b)=>a.localeCompare(b));
+}
+function operationalStaffByName(name){
+  return operationalStaffProfiles().find(p=>norm(p.nombre)===norm(cleanName(name))) || null;
+}
+function ensurePersonForAbsence(name){
+  let index = state.personal.findIndex(p=>norm(p.nombre)===norm(cleanName(name)));
+  if(index >= 0) return index;
+  const op = operationalStaffByName(name);
+  if(!op) return -1;
+  const turnos = op.turnos.join("-");
+  const origen = op.origenes.includes("Canes") ? "Canes" : op.origenes.includes("Rotativo 48") ? `Rotativo 48 ${turnos}` : `Turno ${turnos}`;
+  state.personal.push(normalizePersonRecord({
+    nombre:op.nombre,
+    jerarquia:"",
+    legajo:"",
+    situacion:origen,
+    observaciones:"Registro vinculado automáticamente para licencias",
+    servicio:op.servicio || "24hs",
+    estado:"Activo",
+    dias:"",
+    hora_inicio:"",
+    hora_fin:"",
+    turno_24:op.turnos.length===1 ? op.turnos[0] : "",
+    modalidad:"Fijo",
+    asignaciones:[],
+    ausencias:[],
+    operational_only:true
+  }));
+  state.personal.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  return state.personal.findIndex(p=>norm(p.nombre)===norm(op.nombre));
 }
 
 function bindPlanilla(){
@@ -623,6 +684,7 @@ function loadDay(){
   state.planilla.turno = turnoFromDate(d);
 
   state.personal.forEach(p=>{
+    if(p.operational_only) return;
     if(norm(p.estado||"Activo")==="inactivo") return;
     if(isAbsent(p,d)) return;
     matchingAssignments(p).forEach(a=>{
@@ -670,6 +732,7 @@ function rowsForDate(d){
     state.planilla.dia = dayName(d);
     state.planilla.turno = turnoFromDate(d);
     state.personal.forEach(p=>{
+      if(p.operational_only) return;
       if(norm(p.estado||"Activo")==="inactivo") return;
       if(isAbsent(p,d)) return;
       matchingAssignments(p).forEach(a=>{
@@ -1067,8 +1130,8 @@ function loadAbsenceForm(personIndex, absenceIndex){
 }
 function saveAbsence(){
   const personName = toTitleName(cleanName(q("#absencePerson").value));
-  const targetPersonIndex = state.personal.findIndex(p=>norm(p.nombre)===norm(personName));
-  if(targetPersonIndex < 0) return alert("Seleccioná una persona existente.");
+  const targetPersonIndex = ensurePersonForAbsence(personName);
+  if(targetPersonIndex < 0) return alert("Seleccioná personal de la nómina, de los turnos o de Canes.");
   const tipo = q("#absenceType").value;
   const articulo = q("#absenceArticle").value.trim();
   const fromDate = parseAnyDate(q("#absenceFrom").value);
