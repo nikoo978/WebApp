@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN15";
+const APP_VERSION = "WebN16";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -262,7 +262,7 @@ function cleanPlanillaForDate(date=new Date()){
     dia:dayName(d),
     turno:turnoFromDate(d),
     deben:Array(12).fill(""),
-    rows:[]
+    rows:[blankRow()]
   };
 }
 function hasMeaningfulPlanilla(planilla){
@@ -629,6 +629,7 @@ function normalizeLoadedState(){
   state.planilla ||= {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
   state.planilla.deben ||= Array(12).fill("");
   state.planilla.rows ||= [];
+  ensureTrailingBlankRow(state.planilla);
   state.history ||= [];
   state.undoStack = (state.undoStack || []).slice(0, MAX_UNDO_SNAPSHOTS);
   state.backups = (state.backups || []).slice(0, MAX_CLOUD_BACKUPS);
@@ -964,7 +965,7 @@ function renderSavedTables(){
   list.forEach((entry,index)=>{
     const planilla=entry.planilla||{};
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td><strong>${esc(savedTableDateText(entry))}</strong><small class="saved-table-copy">Copia ${list.length-index}</small></td><td>${esc(new Date(entry.saved_at).toLocaleString("es-AR"))}</td><td>${esc(planilla.turno||"—")}</td><td>${(planilla.rows||[]).length}</td><td class="saved-table-actions"><button class="primary" data-st-action="open" data-st-id="${entry.id}">Abrir</button><button class="danger" data-st-action="delete" data-st-id="${entry.id}">Borrar</button></td>`;
+    tr.innerHTML=`<td><strong>${esc(savedTableDateText(entry))}</strong><small class="saved-table-copy">Copia ${list.length-index}</small></td><td>${esc(new Date(entry.saved_at).toLocaleString("es-AR"))}</td><td>${esc(planilla.turno||"—")}</td><td>${meaningfulPlanillaRows(planilla.rows).length}</td><td class="saved-table-actions"><button class="primary" data-st-action="open" data-st-id="${entry.id}">Abrir</button><button class="danger" data-st-action="delete" data-st-id="${entry.id}">Borrar</button></td>`;
     table.append(tr);
   });
   table.querySelectorAll("button[data-st-action]").forEach(button=>button.addEventListener("click",()=>{
@@ -980,11 +981,19 @@ function bindPlanilla(){
   q("#btnUndoTop").onclick = undoLastChange;
   window.addEventListener("beforeprint", ()=>{ if(!hasDebens()) document.body.classList.add("hide-empty-deben-print"); });
   window.addEventListener("afterprint", ()=> document.body.classList.remove("hide-empty-deben-print"));
-  q("#btnAddRow").onclick = ()=> { state.planilla.rows.push(blankRow()); save({action:"Agregar fila"}); renderPlanilla(); };
+  q("#btnAddRow").onclick = ()=>{
+    ensureTrailingBlankRow();
+    renderPlanilla();
+    requestAnimationFrame(()=>{
+      const input=q("#shiftBody tr.auto-empty-row input[data-field='nombre']");
+      input?.focus();
+      input?.scrollIntoView({block:"center",behavior:"smooth"});
+    });
+  };
   q("#btnSaveAll").onclick = ()=> saveCurrentTableCopy("Botón Guardar");
   q("#btnLoadDay").onclick = loadDay;
   q("#btnRecoverLastTable").onclick = recoverLastPlanilla;
-  q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[]; save({action:"Limpiar filas"}); renderAll(); } };
+  q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[blankRow()]; save({action:"Limpiar filas"}); renderAll(); } };
   q("#btnPrint").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de imprimir")) return; window.print(); };
   q("#btnExportJpg").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de exportar")) return; exportPlanillaJpg(); };
   q("#planDate").addEventListener("change", ()=>{
@@ -995,8 +1004,27 @@ function bindPlanilla(){
   q("#planTurno").onchange = e=> { state.planilla.turno=e.target.value; save({action:"Cambiar turno"}); renderTurnos(); renderDashboard(); };
 }
 function blankRow(){ return {nombre:"", servicio:"", cells:Array(12).fill(""), recargo:false}; }
+function isBlankPlanillaRow(row){
+  if(!row) return true;
+  return !String(row.nombre||"").trim() &&
+    !String(row.servicio||"").trim() &&
+    !(row.cells||[]).some(value=>String(value||"").trim());
+}
+function meaningfulPlanillaRows(rows){
+  return (rows||[]).filter(row=>!isBlankPlanillaRow(row));
+}
+function ensureTrailingBlankRow(planilla=state?.planilla){
+  if(!planilla) return -1;
+  const meaningful=meaningfulPlanillaRows(planilla.rows);
+  planilla.rows=[...meaningful,blankRow()];
+  return planilla.rows.length-1;
+}
+function useAutomaticRow(){
+  ensureTrailingBlankRow();
+}
 
 function renderPlanilla(){
+  ensureTrailingBlankRow();
   q("#planDate").value = dmyToISO(state.planilla.fecha || todayDMY());
   q("#planDay").value = state.planilla.dia || "";
   q("#planTurno").value = state.planilla.turno || "";
@@ -1034,16 +1062,21 @@ function renderPlanilla(){
   body.innerHTML = "";
   state.planilla.rows.forEach((row, rIndex)=>{
     row.nombre = toTitleName(cleanName(row.nombre||""));
+    const automaticEmpty=isBlankPlanillaRow(row) && rIndex===state.planilla.rows.length-1;
     const tr = document.createElement("tr");
+    if(automaticEmpty) tr.className="auto-empty-row";
     const inactiveClass = getPerson(row.nombre)?.estado === "Inactivo" ? " inactive-row" : "";
-    tr.innerHTML = `<td class="name-cell${inactiveClass}"><input class="${row.recargo?'recargo-name':''}" value="${esc(row.nombre)}" data-r="${rIndex}" data-field="nombre" list="staffList"></td>`;
+    const placeholder=automaticEmpty ? ' placeholder="Nueva fila…"' : "";
+    tr.innerHTML = `<td class="name-cell${inactiveClass}"><input class="${row.recargo?'recargo-name':''}" value="${esc(row.nombre)}" data-r="${rIndex}" data-field="nombre" list="staffList"${placeholder}></td>`;
     const fatiga = fatigueCols(row);
     for(let i=0;i<12;i++){
       tr.innerHTML += `<td class="hour-cell cell-btn ${fatiga.has(i)?'fatiga':''}" data-r="${rIndex}" data-c="${i}">${esc(row.cells[i]||"")}</td>`;
     }
     tr.innerHTML += `<td class="tiros-cell">${formatNum(tiros(row))}</td>`;
-    tr.innerHTML += `<td class="service-cell"><select data-r="${rIndex}" data-field="servicio">${SERVICES.map(s=>`<option ${row.servicio===s?'selected':''}>${s}</option>`).join("")}</select></td>`;
-    tr.innerHTML += `<td class="order-cell"><button data-act="up" data-r="${rIndex}">↑</button><button data-act="down" data-r="${rIndex}">↓</button><button data-act="del" data-r="${rIndex}">✕</button></td>`;
+    tr.innerHTML += `<td class="service-cell"><select data-r="${rIndex}" data-field="servicio"><option value="" ${!row.servicio?'selected':''}></option>${SERVICES.map(s=>`<option value="${s}" ${row.servicio===s?'selected':''}>${s}</option>`).join("")}</select></td>`;
+    tr.innerHTML += automaticEmpty
+      ? `<td class="order-cell auto-row-status" title="Esta fila genera otra vacía al utilizarla">＋</td>`
+      : `<td class="order-cell"><button data-act="up" data-r="${rIndex}">↑</button><button data-act="down" data-r="${rIndex}">↓</button><button data-act="del" data-r="${rIndex}">✕</button></td>`;
     body.append(tr);
   });
 
@@ -1061,11 +1094,17 @@ function renderPlanilla(){
       }
       row.nombre=next;
       const p = getPerson(row.nombre); if(p && !row.servicio){ row.servicio=p.servicio||""; row.cells=personMarks(p); }
+      useAutomaticRow();
       save({action:"Modificar nombre en planilla"}); renderAll();
     };
     inp.onclick = e=> { if(e.getModifierState && e.getModifierState("Alt")) toggleRecargo(Number(inp.dataset.r)); };
   });
-  body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{ state.planilla.rows[Number(sel.dataset.r)].servicio=e.target.value; save({action:"Modificar servicio en planilla"}); renderAll(); });
+  body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{
+    state.planilla.rows[Number(sel.dataset.r)].servicio=e.target.value;
+    useAutomaticRow();
+    save({action:"Modificar servicio en planilla"});
+    renderAll();
+  });
 
   body.querySelectorAll(".cell-btn").forEach(td=>{
     td.addEventListener("pointerdown", e=>{
@@ -1074,6 +1113,7 @@ function renderPlanilla(){
         const r=Number(td.dataset.r), c=Number(td.dataset.c);
         longPressTimer = setTimeout(()=>{
           state.planilla.rows[r].cells[c] = "H";
+          useAutomaticRow();
           longPressFired = true;
           save({action:"Marcar H"}); renderAll();
         }, 550);
@@ -1093,6 +1133,7 @@ function renderPlanilla(){
         const idx = seq.indexOf(current);
         row.cells[c] = idx >= 0 ? seq[(idx + 1) % seq.length] : "X";
       }
+      useAutomaticRow();
       save({action:"Modificar celda de horario"}); renderAll();
     };
   });
@@ -1103,6 +1144,7 @@ function renderPlanilla(){
       if(act==="del") state.planilla.rows.splice(r,1);
       if(act==="up" && r>0) [state.planilla.rows[r-1],state.planilla.rows[r]]=[state.planilla.rows[r],state.planilla.rows[r-1]];
       if(act==="down" && r<state.planilla.rows.length-1) [state.planilla.rows[r+1],state.planilla.rows[r]]=[state.planilla.rows[r],state.planilla.rows[r+1]];
+      useAutomaticRow();
       save({action:"Orden manual de filas"}); renderAll();
     };
   });
@@ -1709,7 +1751,7 @@ function bindDailyView(){
   if(search) search.addEventListener("input", renderDailyView);
 }
 function renderDailyView(){
-  const rows = state.planilla.rows || [];
+  const rows = meaningfulPlanillaRows(state.planilla.rows);
   const groups = {};
   rows.forEach(r=>{ const k=r.servicio||"Sin servicio"; (groups[k] ||= []).push(r); });
   const order = ["24hs","Canes","12hs","6hs","4hs","Diario","Rondin","Recargo","Sin servicio"];
@@ -2279,7 +2321,7 @@ function exportPlanillaJpg(){
   const scale = 3;
   const colW = [170, ...Array(12).fill(46), 48, 105];
   const rowH = 28, margin = 24, titleH = 42;
-  const rows = state.planilla.rows;
+  const rows = meaningfulPlanillaRows(state.planilla.rows);
   const headerRows = includeDeb ? 3 : 2;
   const w = (colW.reduce((a,b)=>a+b,0) + margin*2) * scale;
   const h = (titleH + rowH*headerRows + rowH*rows.length + margin*2) * scale;

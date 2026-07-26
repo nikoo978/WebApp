@@ -575,3 +575,31 @@ html[data-theme="dark"] .sync-toast.saving{color:#ffe399;background:#3c3218;bord
 @media print{
   .sync-toast{display:none!important}
 }
+
+
+/* WebN16 · Fila automática siempre disponible en Tabla */
+#tab-planilla .auto-empty-row td{
+  background:color-mix(in srgb,var(--surface-2) 72%,transparent);
+  border-top-style:dashed;
+  border-bottom-style:dashed;
+}
+#tab-planilla .auto-empty-row .name-cell input::placeholder{
+  color:var(--muted);
+  font-style:italic;
+  opacity:.88;
+}
+#tab-planilla .auto-empty-row .cell-btn{
+  cursor:pointer;
+}
+#tab-planilla .auto-row-status{
+  color:var(--accent-strong);
+  font-weight:900;
+  text-align:center;
+  font-size:1.05rem;
+}
+html[data-theme="dark"] #tab-planilla .auto-empty-row td{
+  background:color-mix(in srgb,var(--surface-2) 84%,transparent);
+}
+@media print{
+  #tab-planilla .auto-empty-row{display:none!important}
+}
