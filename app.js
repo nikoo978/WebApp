@@ -16,12 +16,12 @@ const FATIGUE_SERVICES = new Set(["12hs","24hs","canes"]);
 const STORAGE_KEY = "shiftManagerWebN7_LOCAL_CACHE";
 const TURNO_REF = parseDMY("18/04/1979");
 const TURNO_SEQ = ["A","B","C","D"];
-const FULL = new Set(["X","H"]);
-const HALF_LEFT = new Set(["X/"]);
-const HALF_RIGHT = new Set(["/X","./X"]);
+const FULL = new Set(["X"]);
+const HALF_LEFT = new Set(["X/","/D"]);
+const HALF_RIGHT = new Set(["/X","./X","D/"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN18";
+const APP_VERSION = "WebN19";
 const WEATHER_LOCATION = Object.freeze({
   name:"Junín",
   province:"Buenos Aires",
@@ -489,8 +489,9 @@ function validatePlanillaData(planilla=state.planilla){
     if(name && !isReadableText(name)) errors.push(`Planilla: la fila ${rowNo} contiene un nombre ilegible.`);
     if(name && !SERVICES.includes(row.servicio)) errors.push(`Planilla: ${name} tiene un servicio inválido.`);
     (row.cells||[]).forEach((value,c)=>{
-      if(!["","X","X/","/X","H","./X"].includes(token(value))) errors.push(`Planilla: ${name||"fila "+rowNo}, ${HOURS[c]} contiene una marca inválida.`);
+      if(!["","X","X/","/X","H","D","/D","D/","./X"].includes(token(value))) errors.push(`Planilla: ${name||"fila "+rowNo}, ${HOURS[c]} contiene una marca inválida.`);
     });
+    if(serviceKey(row.servicio)==="canes" && tiros(row)>3) errors.push(`Planilla: ${name||"Canes"} supera el máximo de 3 tiros diarios.`);
   });
   return [...new Set(errors)];
 }
@@ -647,7 +648,7 @@ function normalizeLoadedState(){
   state.planilla ||= {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
   state.planilla.deben ||= Array(12).fill("");
   state.planilla.rows ||= [];
-  state.planilla.recargo_suggestions ||= [];
+  state.planilla.recargo_suggestions = Array.isArray(state.planilla.recargo_suggestions) ? state.planilla.recargo_suggestions : [];
   ensureTrailingBlankRow(state.planilla);
   state.history ||= [];
   state.undoStack = (state.undoStack || []).slice(0, MAX_UNDO_SNAPSHOTS);
@@ -1091,7 +1092,9 @@ function renderPlanilla(){
     tr.innerHTML = `<td class="name-cell${inactiveClass}"><input class="${row.recargo?'recargo-name':''}" value="${esc(row.nombre)}" data-r="${rIndex}" data-field="nombre" list="staffList"${placeholder}></td>`;
     const fatiga = fatigueCols(row);
     for(let i=0;i<12;i++){
-      tr.innerHTML += `<td class="hour-cell cell-btn ${fatiga.has(i)?'fatiga':''}" data-r="${rIndex}" data-c="${i}">${esc(row.cells[i]||"")}</td>`;
+      const cellToken=token(row.cells[i]);
+      const restClass=cellToken.includes("D") ? " descanso" : cellToken==="H" ? " marca-h" : "";
+      tr.innerHTML += `<td class="hour-cell cell-btn ${fatiga.has(i)?'fatiga':''}${restClass}" data-r="${rIndex}" data-c="${i}">${esc(row.cells[i]||"")}</td>`;
     }
     tr.innerHTML += `<td class="tiros-cell">${formatNum(tiros(row))}</td>`;
     tr.innerHTML += `<td class="service-cell"><select data-r="${rIndex}" data-field="servicio"><option value="" ${!row.servicio?'selected':''}></option>${SERVICES.map(s=>`<option value="${s}" ${row.servicio===s?'selected':''}>${s}</option>`).join("")}</select></td>`;
@@ -1121,46 +1124,52 @@ function renderPlanilla(){
     inp.onclick = e=> { if(e.getModifierState && e.getModifierState("Alt")) toggleRecargo(Number(inp.dataset.r)); };
   });
   body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{
-    state.planilla.rows[Number(sel.dataset.r)].servicio=e.target.value;
+    const row=state.planilla.rows[Number(sel.dataset.r)];
+    row.servicio=e.target.value;
+    if(["24hs","canes"].includes(serviceKey(row.servicio))){ row.auto_managed=true; row.auto_assigned=true; rebalanceAutomaticCoverage(); }
     useAutomaticRow();
     save({action:"Modificar servicio en planilla"});
     renderAll();
   });
 
   body.querySelectorAll(".cell-btn").forEach(td=>{
-    td.addEventListener("pointerdown", e=>{
-      longPressFired = false;
-      if(e.pointerType === "touch" || e.pointerType === "pen"){
-        const r=Number(td.dataset.r), c=Number(td.dataset.c);
-        longPressTimer = setTimeout(()=>{
-          state.planilla.rows[r].cells[c] = "H";
-          state.planilla.rows[r].auto_assigned=false;
-          state.planilla.rows[r].auto_shots=tiros(state.planilla.rows[r]);
-          useAutomaticRow();
-          longPressFired = true;
-          save({action:"Marcar H"}); renderAll();
-        }, 550);
-      }
-    });
-    td.addEventListener("pointerup", ()=> clearTimeout(longPressTimer));
-    td.addEventListener("pointerleave", ()=> clearTimeout(longPressTimer));
-    td.onclick = e=>{
-      clearTimeout(longPressTimer);
-      if(longPressFired){ longPressFired = false; return; }
+    const applyStatusMark=()=>{
       const r=Number(td.dataset.r), c=Number(td.dataset.c);
-      const row = state.planilla.rows[r];
-      if(e.ctrlKey) row.cells[c] = "H";
-      else {
-        const seq = ["","X","X/","/X"];
-        const current = token(row.cells[c]);
-        const idx = seq.indexOf(current);
-        row.cells[c] = idx >= 0 ? seq[(idx + 1) % seq.length] : "X";
+      const row=state.planilla.rows[r];
+      const current=token(row.cells[c]);
+      row.cells[c]=current==="H" ? "D" : current==="D" ? "" : "H";
+      if(["24hs","canes"].includes(serviceKey(row.servicio)) && row.auto_managed!==false){
+        row.auto_managed=true;
+        row.auto_assigned=true;
       }
-      row.auto_assigned=false;
+      useAutomaticRow();
+      rebalanceAutomaticCoverage();
+      longPressFired=true;
+      save({action:row.cells[c]==="D"?"Marcar descanso D":row.cells[c]==="H"?"Marcar H":"Quitar marca de descanso"});
+      renderAll();
+    };
+    td.addEventListener("pointerdown", e=>{
+      longPressFired=false;
+      if(e.pointerType==="touch" || e.pointerType==="pen") longPressTimer=setTimeout(applyStatusMark,550);
+    });
+    td.addEventListener("pointerup",()=>clearTimeout(longPressTimer));
+    td.addEventListener("pointerleave",()=>clearTimeout(longPressTimer));
+    td.onclick=e=>{
+      clearTimeout(longPressTimer);
+      if(longPressFired){ longPressFired=false; return; }
+      if(e.ctrlKey){ applyStatusMark(); longPressFired=false; return; }
+      const r=Number(td.dataset.r), c=Number(td.dataset.c);
+      const row=state.planilla.rows[r];
+      const seq=["","X","X/","/X"];
+      const current=token(row.cells[c]);
+      const idx=seq.indexOf(current);
+      row.cells[c]=idx>=0 ? seq[(idx+1)%seq.length] : "X";
+      if(["24hs","canes"].includes(serviceKey(row.servicio))){
+        row.auto_assigned=false;
+        row.auto_managed=false;
+      }
       row.auto_shots=tiros(row);
-      state.planilla.recargo_suggestions=buildRecargoSuggestions(
-        coverageDetail(meaningfulPlanillaRows(state.planilla.rows)).map(item=>item.value)
-      );
+      state.planilla.recargo_suggestions=buildRecargoSuggestions(coverageHalfSlots(meaningfulPlanillaRows(state.planilla.rows)));
       useAutomaticRow();
       save({action:"Modificar celda de horario"}); renderAll();
     };
@@ -1180,51 +1189,39 @@ function renderPlanilla(){
 }
 function esc(s){ return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function formatNum(n){ return Number.isInteger(n) ? String(n) : String(n).replace(".",","); }
-function tiros(row){ return (row.cells||[]).reduce((acc,v)=> acc + (FULL.has(token(v))?1:HALF.has(token(v))?0.5:0),0); }
+function tiros(row){ return (row.cells||[]).reduce((acc,v)=>acc+(FULL.has(token(v))?1:HALF.has(token(v))?0.5:0),0); }
 function cellHalfShots(value){
   const t=token(value);
-  if(FULL.has(t)) return [1,1];
+  if(t==="X") return [1,1];
   if(HALF_LEFT.has(t)) return [1,0];
   if(HALF_RIGHT.has(t)) return [0,1];
+  return [0,0];
+}
+function cellBlockedHalves(value){
+  const t=token(value);
+  if(t==="H" || t==="D") return [1,1];
+  if(t==="/D") return [0,1];
+  if(t==="D/") return [1,0];
   return [0,0];
 }
 function fatigueCols(row){
   const marked=new Set(), key=serviceKey(row.servicio);
   if(!FATIGUE_SERVICES.has(key)) return marked;
-
   const halves=[];
-  (row.cells||[]).forEach((value,column)=>{
-    cellHalfShots(value).forEach((working,half)=>halves.push({working,column,half}));
-  });
-
-  // Un descanso válido debe ocupar una columna completa: dos medias horas operativas
-  // consecutivas dentro del modelo de bloques. Los descansos de solo medio bloque
-  // no cortan la secuencia de fatiga.
+  (row.cells||[]).forEach((value,column)=>cellHalfShots(value).forEach(working=>halves.push({working,column})));
   let groupStart=0;
   while(groupStart<halves.length){
     while(groupStart<halves.length && !halves[groupStart].working) groupStart++;
     if(groupStart>=halves.length) break;
-
-    let cursor=groupStart;
-    let worked=0;
-    let lastWork=groupStart;
+    let cursor=groupStart,worked=0,lastWork=groupStart;
     while(cursor<halves.length){
-      if(halves[cursor].working){
-        worked++;
-        lastWork=cursor;
-        cursor++;
-        continue;
-      }
-      let restStart=cursor;
+      if(halves[cursor].working){ worked++; lastWork=cursor; cursor++; continue; }
+      const restStart=cursor;
       while(cursor<halves.length && !halves[cursor].working) cursor++;
-      const restLength=cursor-restStart;
-      if(restLength>=2) break;
+      if(cursor-restStart>=2) break;
     }
-
     if(worked>6){
-      for(let i=groupStart;i<=lastWork;i++){
-        if(halves[i].working) marked.add(halves[i].column);
-      }
+      for(let i=groupStart;i<=lastWork;i++) if(halves[i].working) marked.add(halves[i].column);
     }
     groupStart=cursor;
   }
@@ -1234,13 +1231,20 @@ function coverageDetail(rows){
   return HOURS.map((_,c)=>{
     let left=0,right=0;
     (rows||[]).forEach(row=>{
-      const t = token((row.cells||[])[c]);
-      if(t === "X"){ left++; right++; }
-      else if(HALF_LEFT.has(t)) left++;
-      else if(HALF_RIGHT.has(t)) right++;
+      const [a,b]=cellHalfShots((row.cells||[])[c]);
+      left+=a; right+=b;
     });
-    return {left,right,value:Math.min(left,right), display:left===right ? String(left) : `${left}/${right}`};
+    return {left,right,value:Math.min(left,right),display:left===right?String(left):`${left}/${right}`};
   });
+}
+function coverageHalfSlots(rows){
+  const coverage=Array(24).fill(0);
+  (rows||[]).forEach(row=>(row.cells||[]).forEach((value,column)=>{
+    const [left,right]=cellHalfShots(value);
+    coverage[column*2]+=left;
+    coverage[column*2+1]+=right;
+  }));
+  return coverage;
 }
 function calculateHay(){ return coverageDetail(state.planilla.rows).map(d=>d.display); }
 function parseTarget(v){
@@ -1338,151 +1342,369 @@ function standardRow(name,service,cells,meta={}){
 
 
 const COVERAGE_TARGETS = Object.freeze({
-  ideal:[5,5,5,5,5,5,7,7,7,7,7,7],
-  minimum:[4,4,4,4,4,4,6,6,6,6,6,6],
-  maximum:[8,8,8,8,8,8,8,8,8,8,8,8]
+  halfMinimum:Array.from({length:24},(_,i)=>{ const hour=(7+i)%24; return hour>=20||hour<7?6:4; }),
+  halfIdeal:Array.from({length:24},(_,i)=>{ const hour=(7+i)%24; return hour>=20||hour<7?7:5; }),
+  halfMaximum:Array(24).fill(8)
 });
 const RECARGO_WINDOWS = Object.freeze([
-  {label:"07 a 13",cols:[0,1,2]},
-  {label:"13 a 19",cols:[3,4,5]},
-  {label:"19 a 01",cols:[6,7,8]},
-  {label:"01 a 07",cols:[9,10,11]}
+  {label:"07 a 13",slots:[0,1,2,3,4,5]},
+  {label:"13 a 19",slots:[6,7,8,9,10,11]},
+  {label:"19 a 01",slots:[12,13,14,15,16,17]},
+  {label:"01 a 07",slots:[18,19,20,21,22,23]}
 ]);
+const NIGHT_SLOT_START=13; // 20:00 dentro del eje operativo 07→07.
 
-function validAutoPattern(indices){
-  if(indices.length<6 || indices.length>8) return false;
-  const active=new Set(indices);
-  let run=0;
-  for(let i=0;i<12;i++){
-    if(active.has(i)){ run++; if(run>3) return false; }
-    else run=0;
-  }
-  return true;
+function operationalHourForSlot(slot){ return (7+slot)%24; }
+function targetTextForColumn(column,key){
+  const values=COVERAGE_TARGETS[key].slice(column*2,column*2+2);
+  return values[0]===values[1]?String(values[0]):`${values[0]}/${values[1]}`;
 }
-function buildAutoPatterns(){
-  const patterns=[];
-  const pick=(start,chosen)=>{
-    if(chosen.length>=6 && validAutoPattern(chosen)){
-      const cells=Array(12).fill("");
-      chosen.forEach(i=>cells[i]="X");
-      patterns.push({indices:[...chosen],cells,count:chosen.length});
+function cloneSlots(slots){ return slots.map(Number); }
+function slotsFromCells(cells){
+  const out=[];
+  (cells||Array(12).fill("")).forEach(value=>out.push(...cellHalfShots(value)));
+  return out;
+}
+function cellsFromSlots(slots,lockedCells=[]){
+  return Array.from({length:12},(_,column)=>{
+    const locked=token(lockedCells[column]);
+    if(["H","D","/D","D/"].includes(locked)) return locked;
+    const left=Number(slots[column*2]||0),right=Number(slots[column*2+1]||0);
+    return left&&right?"X":left?"X/":right?"/X":"";
+  });
+}
+function maxWorkWithoutFullRest(slots){
+  let cursor=0,maxWorked=0;
+  while(cursor<slots.length){
+    while(cursor<slots.length&&!slots[cursor]) cursor++;
+    if(cursor>=slots.length) break;
+    let worked=0;
+    while(cursor<slots.length){
+      if(slots[cursor]){ worked++; cursor++; continue; }
+      const restStart=cursor;
+      while(cursor<slots.length&&!slots[cursor]) cursor++;
+      if(cursor-restStart>=2) break;
     }
-    if(chosen.length===8) return;
-    for(let i=start;i<12;i++){
-      chosen.push(i);
-      if(validAutoPattern(chosen) || chosen.length<6) pick(i+1,chosen);
-      chosen.pop();
+    maxWorked=Math.max(maxWorked,worked);
+  }
+  return maxWorked;
+}
+function longestNightRest(slots){
+  let longest=0,current=0;
+  for(let i=NIGHT_SLOT_START;i<24;i++){
+    if(!slots[i]){ current++; longest=Math.max(longest,current); }
+    else current=0;
+  }
+  return longest;
+}
+function patternAllowed(slots,blocked,{canes=false,extreme=false}={}){
+  const work=slots.reduce((a,b)=>a+b,0);
+  if(slots.some((value,i)=>value&&blocked[i])) return false;
+  if(maxWorkWithoutFullRest(slots)>6) return false;
+  if(canes) return work<=6; // máximo 3 tiros.
+  if(work<12||work>16) return false;
+  return longestNightRest(slots)>=(extreme?3:4);
+}
+function buildBase24Patterns(){
+  const unique=new Map();
+  const choose=(start,selected)=>{
+    if(selected.length>=6&&selected.length<=8){
+      const cells=Array(12).fill(""); selected.forEach(i=>cells[i]="X");
+      const slots=slotsFromCells(cells);
+      if(maxWorkWithoutFullRest(slots)<=6) unique.set(slots.join(""),slots);
+    }
+    if(selected.length===8) return;
+    for(let i=start;i<12;i++){ selected.push(i); choose(i+1,selected); selected.pop(); }
+  };
+  choose(0,[]);
+  return [...unique.values()];
+}
+function extremeNightVariants(base){
+  const variants=[];
+  if(base.reduce((a,b)=>a+b,0)>=16) return variants;
+  for(let i=NIGHT_SLOT_START;i<24;i++){
+    if(base[i]) continue;
+    const extended=cloneSlots(base); extended[i]=1;
+    if(longestNightRest(extended)===3&&maxWorkWithoutFullRest(extended)<=6) variants.push(extended);
+  }
+  return variants.slice(0,2);
+}
+function buildCanesPatterns(){
+  const unique=new Map();
+  const choose=(start,left,slots)=>{
+    unique.set(slots.join(""),cloneSlots(slots));
+    if(left===0) return;
+    for(let column=start;column<12;column++){
+      const full=cloneSlots(slots); full[column*2]=1; full[column*2+1]=1; choose(column+1,left-1,full);
     }
   };
-  pick(0,[]);
-  return patterns;
+  choose(0,3,Array(24).fill(0));
+  return [...unique.values()];
 }
-const AUTO_24_PATTERNS = buildAutoPatterns();
+const BASE_24_PATTERNS=buildBase24Patterns();
+const BASE_CANES_PATTERNS=buildCanesPatterns();
 
-function patternScore(pattern,coverage,personIndex){
+function blockedSlotsForRow(row){
+  const out=[];
+  (row.cells||[]).forEach(value=>out.push(...cellBlockedHalves(value)));
+  return out;
+}
+function candidatePatternsForRow(row,allowExtreme=false){
+  const canes=serviceKey(row.servicio)==="canes";
+  const blocked=blockedSlotsForRow(row);
+  const source=canes?BASE_CANES_PATTERNS:BASE_24_PATTERNS;
+  let candidates=source.filter(slots=>patternAllowed(slots,blocked,{canes,extreme:false}));
+  if(!canes&&allowExtreme){
+    const extreme=[];
+    source.forEach(base=>extreme.push(...extremeNightVariants(base)));
+    candidates=candidates.concat(extreme.filter(slots=>patternAllowed(slots,blocked,{canes:false,extreme:true})));
+  }
+  return candidates;
+}
+function coverageObjective(coverage){
   let score=0;
-  pattern.indices.forEach(i=>{
-    const ideal=COVERAGE_TARGETS.ideal[i];
-    const minimum=COVERAGE_TARGETS.minimum[i];
-    const maximum=COVERAGE_TARGETS.maximum[i];
-    const current=coverage[i];
-    if(current<minimum) score += (minimum-current)*120;
-    else if(current<ideal) score += (ideal-current)*45;
-    else score -= (current-ideal+1)*18;
-    if(i>=6) score += 10;
-    if(current>=maximum) score -= 500;
+  coverage.forEach((value,i)=>{
+    const min=COVERAGE_TARGETS.halfMinimum[i],ideal=COVERAGE_TARGETS.halfIdeal[i],max=COVERAGE_TARGETS.halfMaximum[i];
+    if(value<min) score-=(min-value)*(min-value)*1500;
+    else score-=Math.abs(value-ideal)*45;
+    if(value>max) score-=(value-max)*(value-max)*6000;
   });
-  // La carga habitual es 7 tiros. Se permite 6 u 8 cuando mejora la cobertura.
-  score -= Math.abs(pattern.count-7)*7;
-  // Pequeña rotación para no entregar el mismo patrón a todos.
-  score += pattern.indices.reduce((sum,i)=>sum+((i+personIndex)%12===0?1.5:0),0);
+  for(let i=1;i<coverage.length;i++) score-=Math.abs(coverage[i]-coverage[i-1])*70;
+  for(let i=1;i<coverage.length-1;i++){
+    const left=coverage[i]-coverage[i-1],right=coverage[i+1]-coverage[i];
+    if(left*right<0) score-=(Math.abs(left)+Math.abs(right))*85;
+    const neighbors=(coverage[i-1]+coverage[i+1])/2;
+    score-=Math.max(0,Math.abs(coverage[i]-neighbors)-1)*100;
+  }
   return score;
+}
+function candidatePreference(row,slots,allowExtreme=false){
+  const work=slots.reduce((a,b)=>a+b,0);
+  if(serviceKey(row.servicio)==="canes") return -work*5;
+  let score=-Math.abs(work-14)*9;
+  const nightRest=longestNightRest(slots);
+  if(nightRest===3) score-=allowExtreme?900:100000;
+  score-=Math.max(0,4-nightRest)*10000;
+  return score;
+}
+function addSlots(target,slots,sign=1){ slots.forEach((v,i)=>target[i]+=v*sign); }
+function fixedCoverageRows(rows){
+  return rows.filter(row=>!( ["24hs","canes"].includes(serviceKey(row.servicio)) && row.auto_managed!==false ));
+}
+function runCoverageOptimizer(rows,{allowExtreme=false}={}){
+  const managed=rows.filter(row=>["24hs","canes"].includes(serviceKey(row.servicio))&&row.auto_managed!==false);
+  const coverage=coverageHalfSlots(fixedCoverageRows(rows));
+  const assignments=new Map();
+
+  managed.sort((a,b)=>Number(serviceKey(a.servicio)==="canes")-Number(serviceKey(b.servicio)==="canes"));
+  managed.forEach(row=>{
+    const candidates=candidatePatternsForRow(row,allowExtreme);
+    let best=Array(24).fill(0),bestScore=-Infinity;
+    candidates.forEach(slots=>{
+      const trial=coverage.map((v,i)=>v+slots[i]);
+      const score=coverageObjective(trial)+candidatePreference(row,slots,allowExtreme);
+      if(score>bestScore){bestScore=score;best=slots;}
+    });
+    assignments.set(row,best); addSlots(coverage,best,1);
+  });
+
+  for(let pass=0;pass<3;pass++){
+    managed.forEach(row=>{
+      const current=assignments.get(row)||Array(24).fill(0); addSlots(coverage,current,-1);
+      const candidates=candidatePatternsForRow(row,allowExtreme);
+      let best=current,bestScore=-Infinity;
+      candidates.forEach(slots=>{
+        const trial=coverage.map((v,i)=>v+slots[i]);
+        const score=coverageObjective(trial)+candidatePreference(row,slots,allowExtreme);
+        if(score>bestScore){bestScore=score;best=slots;}
+      });
+      assignments.set(row,best); addSlots(coverage,best,1);
+    });
+  }
+  assignments.forEach((slots,row)=>{
+    const locked=[...(row.cells||Array(12).fill(""))];
+    row.cells=cellsFromSlots(slots,locked);
+    row.auto_assigned=true; row.auto_managed=true; row.auto_shots=tiros(row);
+  });
+  return {coverage,managed};
+}
+function setRowHalfWork(row,slot,value,{markRest=false}={}){
+  const column=Math.floor(slot/2),half=slot%2;
+  const current=slotsFromCells(row.cells);
+  current[slot]=value?1:0;
+  const other=current[column*2+(half?0:1)];
+  if(markRest&&!value){
+    row.cells[column]=other?(half?"/D":"D/"):"D";
+  }else{
+    row.cells[column]=current[column*2]&&current[column*2+1]?"X":current[column*2]?"X/":current[column*2+1]?"/X":"";
+  }
+}
+function smoothCoveragePeaks(rows){
+  const coverage=coverageHalfSlots(rows);
+  const removeOne=slot=>{
+    const row=rows
+      .filter(item=>serviceKey(item.servicio)==="24hs"&&item.auto_managed!==false&&tiros(item)>6&&cellHalfShots(item.cells[Math.floor(slot/2)])[slot%2]&&!["H","D","/D","D/"].includes(token(item.cells[Math.floor(slot/2)])))
+      .sort((a,b)=>tiros(b)-tiros(a))[0];
+    if(!row) return false;
+    setRowHalfWork(row,slot,0); row.auto_shots=tiros(row); coverage[slot]--; return true;
+  };
+  for(let pass=0;pass<3;pass++){
+    let start=0;
+    while(start<24){
+      while(start<24&&coverage[start]<=COVERAGE_TARGETS.halfIdeal[start]) start++;
+      if(start>=24) break;
+      let end=start;
+      while(end+1<24&&coverage[end+1]>COVERAGE_TARGETS.halfIdeal[end+1]) end++;
+      const left=start>0?coverage[start-1]:COVERAGE_TARGETS.halfIdeal[start];
+      const right=end<23?coverage[end+1]:COVERAGE_TARGETS.halfIdeal[end];
+      const ideal=Math.max(...COVERAGE_TARGETS.halfIdeal.slice(start,end+1));
+      const target=Math.max(ideal,Math.min(8,Math.min(left,right)+2));
+      for(let slot=start;slot<=end;slot++) while(coverage[slot]>target&&removeOne(slot)){}
+      start=end+1;
+    }
+  }
+  return coverage;
+}
+function enforceMaximumCoverage(rows){
+  const coverage=coverageHalfSlots(rows);
+  for(let slot=0;slot<24;slot++){
+    let safety=50;
+    while(coverage[slot]>8&&safety-->0){
+      const removable24=rows
+        .filter(row=>serviceKey(row.servicio)==="24hs"&&cellHalfShots(row.cells[Math.floor(slot/2)])[slot%2]&&!["H","D","/D","D/"].includes(token(row.cells[Math.floor(slot/2)])))
+        .sort((a,b)=>tiros(b)-tiros(a));
+      let row=removable24.find(item=>tiros(item)>6)||removable24[0];
+      if(row){ setRowHalfWork(row,slot,0); coverage[slot]--; row.auto_shots=tiros(row); continue; }
+      const canes=rows.find(item=>serviceKey(item.servicio)==="canes"&&cellHalfShots(item.cells[Math.floor(slot/2)])[slot%2]);
+      if(canes){ setRowHalfWork(canes,slot,0); coverage[slot]--; canes.auto_shots=tiros(canes); continue; }
+      const rondin=rows.find(item=>serviceKey(item.servicio)==="rondin"&&cellHalfShots(item.cells[Math.floor(slot/2)])[slot%2]);
+      if(rondin){ setRowHalfWork(rondin,slot,0,{markRest:true}); coverage[slot]--; continue; }
+      break;
+    }
+  }
+  return coverage;
+}
+function hasCriticalDeficit(coverage){
+  return coverage.some((value,i)=>value<COVERAGE_TARGETS.halfMinimum[i]);
+}
+function rebalanceAutomaticCoverage(){
+  const rows=meaningfulPlanillaRows(state.planilla.rows);
+  applyRequiredIncomingRest(rows,parseDMY(state.planilla.fecha));
+  let result=runCoverageOptimizer(rows,{allowExtreme:false});
+  const preferredCells=new Map(rows.map(row=>[row,clone(row.cells)]));
+  if(hasCriticalDeficit(result.coverage)){
+    const preferredScore=coverageObjective(result.coverage);
+    const extreme=runCoverageOptimizer(rows,{allowExtreme:true});
+    if(coverageObjective(extreme.coverage)>preferredScore) result=extreme;
+    else preferredCells.forEach((cells,row)=>row.cells=clone(cells));
+  }
+  smoothCoveragePeaks(rows);
+  const coverage=enforceMaximumCoverage(rows);
+  state.planilla.recargo_suggestions=buildRecargoSuggestions(coverage);
+  return {coverage,staffCount:result.managed.length};
+}
+function assignmentWorksOnDate(a,d){
+  const days=dayTokens(a.dias||"");
+  const day=dayKeyFromDate(d);
+  return !day||days.size===0||days.has("todos")||days.has(day);
+}
+function matchingAssignmentsForDate(p,d){
+  const weekly=scheduleForPersonDate(p,d);
+  if(weekly) return [weekly];
+  if(p.horario_semanal) return [];
+  const asg=Array.isArray(p.asignaciones)&&p.asignaciones.length?p.asignaciones:[{
+    dias:p.dias,hora_inicio:p.hora_inicio,hora_fin:p.hora_fin,servicio:p.servicio,modalidad:p.modalidad,
+    rotativo_a_inicio:p.rotativo_a_inicio,rotativo_a_fin:p.rotativo_a_fin,rotativo_b_inicio:p.rotativo_b_inicio,rotativo_b_fin:p.rotativo_b_fin,fecha_base_rotacion:p.fecha_base_rotacion
+  }];
+  return asg.filter(a=>assignmentWorksOnDate(a,d));
+}
+function previousPlanillaForDate(d){
+  const target=formatDMY(d),candidates=[];
+  if(state.last_planilla_draft?.planilla?.fecha===target) candidates.push({planilla:state.last_planilla_draft.planilla,at:state.last_planilla_draft.saved_at||""});
+  (state.saved_tables||[]).forEach(item=>{ if(item?.planilla?.fecha===target) candidates.push({planilla:item.planilla,at:item.saved_at||""}); });
+  candidates.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  return candidates[0]?.planilla||null;
+}
+function previousNightEntrantNames(d){
+  const names=new Set(),previous=addDays(d,-1),prior=previousPlanillaForDate(previous);
+  (prior?.rows||[]).forEach(row=>{
+    if(!["recargo","rondin"].includes(serviceKey(row.servicio))&&!row.recargo) return;
+    const slots=slotsFromCells(row.cells);
+    if(slots.slice(18,24).some(Boolean)&&row.nombre&&!/^rondin\d*$/i.test(row.nombre)) names.add(norm(row.nombre));
+  });
+  (state.personal||[]).forEach(person=>{
+    matchingAssignmentsForDate(person,previous).forEach(a=>{
+      const service=serviceKey(serviceForAssignment(a,person));
+      if(!["recargo","rondin"].includes(service)) return;
+      const range=assignmentRange(a,person,previous);
+      const axis=axisRange(range.start,range.end);
+      if(axis&&axis[0]<31&&axis[1]>25) names.add(norm(person.nombre));
+    });
+  });
+  return names;
+}
+function applyRequiredIncomingRest(rows,d){
+  const incoming=previousNightEntrantNames(d);
+  rows.forEach(row=>{
+    const is48=norm(row.source).includes("rotativo 48")||norm(row.rotation_type).includes("rotativo 48");
+    if(!is48&&!incoming.has(norm(row.nombre))) return;
+    row.cells[0]="D"; row.cells[1]="D";
+    row.required_rest="07 a 11";
+  });
 }
 function assignAutomatic24Coverage(){
   const rows=state.planilla.rows||[];
-  const operationalRows=rows.filter(row=>!["24hs","canes"].includes(serviceKey(row.servicio)));
-  const coverage=coverageDetail(operationalRows).map(item=>item.value);
-  const staff24=rows.filter(row=>["24hs","canes"].includes(serviceKey(row.servicio)));
-
-  staff24.forEach((row,personIndex)=>{
-    let best=null,bestScore=-Infinity;
-    AUTO_24_PATTERNS.forEach(pattern=>{
-      const score=patternScore(pattern,coverage,personIndex);
-      if(score>bestScore){ bestScore=score; best=pattern; }
-    });
-    row.cells=best ? [...best.cells] : Array(12).fill("");
-    row.auto_assigned=true;
-    row.auto_shots=best?.count||0;
-    (best?.indices||[]).forEach(i=>coverage[i]++);
+  rows.forEach(row=>{
+    if(["24hs","canes"].includes(serviceKey(row.servicio))){
+      row.auto_managed=true; row.auto_assigned=true;
+    }
   });
-
-  state.planilla.recargo_suggestions=buildRecargoSuggestions(coverage);
-  return {coverage,staffCount:staff24.length};
+  applyRequiredIncomingRest(rows,parseDMY(state.planilla.fecha));
+  return rebalanceAutomaticCoverage();
 }
 function buildRecargoSuggestions(coverage){
   return RECARGO_WINDOWS.map(window=>{
-    const deficits=window.cols.map(i=>Math.max(0,COVERAGE_TARGETS.minimum[i]-Number(coverage[i]||0)));
-    const quantity=Math.max(0,...deficits);
-    if(!quantity) return null;
-    const weakest=window.cols
-      .map(i=>({hour:HOURS[i],coverage:Number(coverage[i]||0),minimum:COVERAGE_TARGETS.minimum[i]}))
+    const deficits=window.slots.map(i=>Math.max(0,COVERAGE_TARGETS.halfMinimum[i]-Number(coverage[i]||0)));
+    const required=Math.max(0,...deficits);
+    if(!required) return null;
+    const safeCapacity=Math.max(0,Math.min(...window.slots.map(i=>8-Number(coverage[i]||0))));
+    const quantity=Math.min(required,safeCapacity||required);
+    const weakest=window.slots
+      .map(i=>({hour:`${String(operationalHourForSlot(i)).padStart(2,"0")}-${String((operationalHourForSlot(i)+1)%24).padStart(2,"0")}`,coverage:Number(coverage[i]||0),minimum:COVERAGE_TARGETS.halfMinimum[i]}))
       .filter(item=>item.coverage<item.minimum);
-    return {
-      range:window.label,
-      quantity,
-      weakest,
-      reason:`Faltan ${quantity} para alcanzar el mínimo operativo en la franja.`
-    };
+    return {range:window.label,quantity,required,weakest,limited:safeCapacity<required,reason:`Cada recargo cubre 3 tiros consecutivos (${window.label}).`};
   }).filter(Boolean);
 }
 function renderCoveragePlanner(){
   const root=q("#coveragePlanner");
   if(!root) return;
   const rows=meaningfulPlanillaRows(state.planilla.rows);
-  const assigned=rows.filter(row=>row.auto_assigned && ["24hs","canes"].includes(serviceKey(row.servicio)));
+  const assigned=rows.filter(row=>row.auto_assigned&&["24hs","canes"].includes(serviceKey(row.servicio)));
   const suggestions=state.planilla.recargo_suggestions||[];
-  if(!assigned.length && !suggestions.length){
-    root.classList.add("hidden");
-    root.innerHTML="";
-    return;
-  }
-  const coverage=coverageDetail(rows);
-  const belowMinimum=coverage
-    .map((item,i)=>({i,value:item.value,min:COVERAGE_TARGETS.minimum[i]}))
-    .filter(item=>item.value<item.min);
+  if(!assigned.length&&!suggestions.length){ root.classList.add("hidden"); root.innerHTML=""; return; }
+  const detail=coverageDetail(rows),halves=coverageHalfSlots(rows);
+  const below=halves.filter((value,i)=>value<COVERAGE_TARGETS.halfMinimum[i]).length;
+  const over=halves.filter(value=>value>8).length;
+  const canes=rows.filter(row=>serviceKey(row.servicio)==="canes");
   root.classList.remove("hidden");
   root.innerHTML=`
     <div class="coverage-planner-head">
-      <div>
-        <span>PLANIFICACIÓN AUTOMÁTICA</span>
-        <strong>${assigned.length} agentes de 24 h distribuidos con control de fatiga</strong>
-      </div>
-      <div class="coverage-planner-state ${belowMinimum.length?"warning":"ok"}">
-        ${belowMinimum.length?`⚠ ${belowMinimum.length} franjas debajo del mínimo`:"✓ Cobertura mínima alcanzada"}
-      </div>
+      <div><span>PLANIFICACIÓN AUTOMÁTICA 07→07</span><strong>${assigned.length} agentes distribuidos · Canes: ${canes.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}/3`).join(" · ")||"sin asignar"}</strong></div>
+      <div class="coverage-planner-state ${below||over?"warning":"ok"}">${over?`⚠ ${over} horas superan 8 puestos`:below?`⚠ ${below} horas debajo del mínimo`:"✓ Cobertura estable dentro de los límites"}</div>
     </div>
     <div class="coverage-mini-grid">
-      ${coverage.map((item,i)=>{
-        const level=item.value<COVERAGE_TARGETS.minimum[i]?"critical":item.value<COVERAGE_TARGETS.ideal[i]?"caution":item.value<=8?"safe":"high";
-        return `<div class="coverage-mini ${level}">
-          <small>${HOURS[i]}</small><strong>${item.display}</strong><span>mín ${COVERAGE_TARGETS.minimum[i]} · ideal ${COVERAGE_TARGETS.ideal[i]}</span>
-        </div>`;
+      ${detail.map((item,i)=>{
+        const leftMin=COVERAGE_TARGETS.halfMinimum[i*2],rightMin=COVERAGE_TARGETS.halfMinimum[i*2+1];
+        const leftMax=item.left>8,rightMax=item.right>8;
+        const belowMin=item.left<leftMin||item.right<rightMin;
+        const belowIdeal=item.left<COVERAGE_TARGETS.halfIdeal[i*2]||item.right<COVERAGE_TARGETS.halfIdeal[i*2+1];
+        const level=leftMax||rightMax?"high":belowMin?"critical":belowIdeal?"caution":"safe";
+        return `<div class="coverage-mini ${level}"><small>${HOURS[i]}</small><strong>${item.display}</strong><span>mín ${targetTextForColumn(i,"halfMinimum")} · ideal ${targetTextForColumn(i,"halfIdeal")}</span></div>`;
       }).join("")}
     </div>
-    ${suggestions.length?`
-      <div class="recargo-suggestions">
-        <div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Solo cuando el personal disponible no alcanza el mínimo.</small></div></div>
-        <div class="recargo-cards">
-          ${suggestions.map(item=>`<div class="recargo-card">
-            <b>${item.quantity} × ${item.range}</b>
-            <span>${esc(item.reason)}</span>
-            <small>${item.weakest.map(x=>`${x.hour}: ${formatNum(x.coverage)}/${x.minimum}`).join(" · ")}</small>
-          </div>`).join("")}
-        </div>
-      </div>`:""}
+    ${suggestions.length?`<div class="recargo-suggestions"><div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Bloques de 3 tiros consecutivos.</small></div></div><div class="recargo-cards">${suggestions.map(item=>`<div class="recargo-card"><b>${item.quantity} × ${item.range}</b><span>${esc(item.reason)}</span><small>${item.weakest.map(x=>`${x.hour}: ${x.coverage}/${x.minimum}`).join(" · ")}${item.limited?" · requiere reorganizar para no superar 8":""}</small></div>`).join("")}</div></div>`:""}
   `;
 }
-
 function loadDay(){
   const masterErrors=validateMasterData();
   if(showValidationErrors(masterErrors,"Corregí los datos antes de cargar la tabla")) return;
@@ -1562,6 +1784,10 @@ function rowsForDate(d){
       });
     });
     addStandardRowsTo(rows,d,state.planilla.turno);
+    rows.forEach(row=>{ if(["24hs","canes"].includes(serviceKey(row.servicio))){ row.auto_managed=true; row.auto_assigned=true; } });
+    applyRequiredIncomingRest(rows,d);
+    runCoverageOptimizer(rows,{allowExtreme:false});
+    enforceMaximumCoverage(rows);
     rows.sort((a,b)=>{
       const rank = s=>{ const k=serviceKey(s); if(k==="24hs")return 0; if(k==="canes")return 1; if(["4hs","6hs","12hs","diario"].includes(k))return 2; if(k==="rondin")return 3; if(k==="recargo")return 4; return 5; };
       return (a.recargo?4:rank(a.servicio))-(b.recargo?4:rank(b.servicio)) || a.nombre.localeCompare(b.nombre);
@@ -1984,7 +2210,7 @@ function weatherApiUrl(){
     latitude:String(WEATHER_LOCATION.latitude),
     longitude:String(WEATHER_LOCATION.longitude),
     timezone:WEATHER_LOCATION.timezone,
-    forecast_days:"7",
+    forecast_days:"8",
     models:"best_match",
     current:[
       "temperature_2m","relative_humidity_2m","apparent_temperature","is_day",
@@ -2022,7 +2248,7 @@ async function loadWeather(force=false){
     weatherData=cached.data;
     weatherFetchedAt=Number(cached.at);
     weatherMessage="";
-    weatherSelectedDate ||= weatherData.daily?.time?.[0] || "";
+    weatherSelectedDate ||= weatherOperationalDates()[0] || "";
     renderWeather();
     return;
   }
@@ -2036,14 +2262,14 @@ async function loadWeather(force=false){
     if(!data?.hourly?.time?.length || !data?.daily?.time?.length) throw new Error("Pronóstico incompleto");
     weatherData=data;
     weatherFetchedAt=Date.now();
-    weatherSelectedDate = data.daily.time.includes(weatherSelectedDate) ? weatherSelectedDate : data.daily.time[0];
+    weatherSelectedDate = data.daily.time.slice(0,7).includes(weatherSelectedDate) ? weatherSelectedDate : data.daily.time[0];
     weatherMessage="";
     writeWeatherCache(data,weatherFetchedAt);
   }catch(error){
     if(cached){
       weatherData=cached.data;
       weatherFetchedAt=Number(cached.at);
-      weatherSelectedDate ||= weatherData.daily?.time?.[0] || "";
+      weatherSelectedDate ||= weatherOperationalDates()[0] || "";
       weatherMessage="Sin conexión: se muestra el último pronóstico guardado.";
     }else{
       weatherMessage="No se pudo cargar el clima. Revisá la conexión y volvé a intentar.";
@@ -2072,46 +2298,40 @@ function weatherCodeMeta(code,isDay=true){
 function weatherDayIndex(date){
   return Math.max(0,(weatherData?.daily?.time||[]).indexOf(date));
 }
+function weatherOperationalDates(){ return (weatherData?.daily?.time||[]).slice(0,7); }
 function weatherHoursFor(date){
   if(!weatherData?.hourly?.time) return [];
-  const h=weatherData.hourly;
-  const result=[];
+  const h=weatherData.hourly,result=[];
+  const nextDate=new Date(`${date}T12:00:00`); nextDate.setDate(nextDate.getDate()+1);
+  const next=`${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,"0")}-${String(nextDate.getDate()).padStart(2,"0")}`;
   h.time.forEach((time,i)=>{
-    if(!time.startsWith(date)) return;
+    const day=time.slice(0,10),hour=Number(time.slice(11,13));
+    if(!((day===date&&hour>=7)||(day===next&&hour<7))) return;
     result.push({
-      time,
-      hour:Number(time.slice(11,13)),
-      temperature:Number(h.temperature_2m?.[i]),
-      humidity:Number(h.relative_humidity_2m?.[i]),
-      dewPoint:Number(h.dew_point_2m?.[i]),
-      precipitationProbability:Number(h.precipitation_probability?.[i]||0),
-      precipitation:Number(h.precipitation?.[i]||0),
-      rain:Number(h.rain?.[i]||0),
-      showers:Number(h.showers?.[i]||0),
-      code:Number(h.weather_code?.[i]),
-      visibility:Number(h.visibility?.[i]),
-      wind:Number(h.wind_speed_10m?.[i]||0),
-      gust:Number(h.wind_gusts_10m?.[i]||0)
+      time,hour,axisHour:hour<7?hour+24:hour,
+      temperature:Number(h.temperature_2m?.[i]),humidity:Number(h.relative_humidity_2m?.[i]),dewPoint:Number(h.dew_point_2m?.[i]),
+      precipitationProbability:Number(h.precipitation_probability?.[i]||0),precipitation:Number(h.precipitation?.[i]||0),rain:Number(h.rain?.[i]||0),showers:Number(h.showers?.[i]||0),
+      code:Number(h.weather_code?.[i]),visibility:Number(h.visibility?.[i]),wind:Number(h.wind_speed_10m?.[i]||0),gust:Number(h.wind_gusts_10m?.[i]||0)
     });
   });
-  return result;
+  return result.sort((a,b)=>a.axisHour-b.axisHour);
+}
+function weatherRepresentativeCode(hours){
+  const severity=code=>[96,99].includes(code)?9:code===95?8:[65,67,82].includes(code)?7:[61,63,66,80,81].includes(code)?6:[45,48].includes(code)?5:[51,53,55,56,57].includes(code)?4:code===3?3:code===2?2:code===1?1:0;
+  return [...hours].sort((a,b)=>severity(b.code)-severity(a.code))[0]?.code||0;
 }
 function weatherDayInfo(date){
-  const i=weatherDayIndex(date);
-  const d=weatherData?.daily||{};
+  const i=weatherDayIndex(date),d=weatherData?.daily||{},hours=weatherHoursFor(date);
+  const temperatures=hours.map(h=>h.temperature).filter(Number.isFinite);
   return {
-    date,
-    code:Number(d.weather_code?.[i]),
-    max:Number(d.temperature_2m_max?.[i]),
-    min:Number(d.temperature_2m_min?.[i]),
-    precipitation:Number(d.precipitation_sum?.[i]||0),
-    precipitationHours:Number(d.precipitation_hours?.[i]||0),
-    rainProbability:Number(d.precipitation_probability_max?.[i]||0),
-    sunrise:d.sunrise?.[i]||"",
-    sunset:d.sunset?.[i]||"",
-    wind:Number(d.wind_speed_10m_max?.[i]||0),
-    gust:Number(d.wind_gusts_10m_max?.[i]||0),
-    hours:weatherHoursFor(date)
+    date,code:weatherRepresentativeCode(hours),
+    max:temperatures.length?Math.max(...temperatures):Number(d.temperature_2m_max?.[i]),
+    min:temperatures.length?Math.min(...temperatures):Number(d.temperature_2m_min?.[i]),
+    precipitation:hours.reduce((sum,h)=>sum+(h.precipitation||0),0),
+    precipitationHours:hours.filter(h=>h.precipitation>0.1).length,
+    rainProbability:Math.max(0,...hours.map(h=>h.precipitationProbability||0)),
+    sunrise:d.sunrise?.[i]||"",sunset:d.sunset?.[i]||"",
+    wind:Math.max(0,...hours.map(h=>h.wind||0)),gust:Math.max(0,...hours.map(h=>h.gust||0)),hours
   };
 }
 function weatherTime(text){ return text ? text.slice(11,16) : "—"; }
@@ -2156,18 +2376,16 @@ function isNightHour(hour,day){
   return minute<sunrise || minute>=sunset;
 }
 function weatherWindows(hours,predicate){
-  const ranges=[];
-  let start=null;
+  const ranges=[]; let start=null;
+  const label=hour=>`${String(hour%24).padStart(2,"0")}:00`;
   hours.forEach((hour,index)=>{
-    const active=predicate(hour);
-    if(active && start===null) start=index;
-    const atEnd=index===hours.length-1;
-    if(start!==null && (!active || atEnd)){
-      const endExclusive=active && atEnd ? index+1 : index;
-      const startHour=hours[start]?.hour ?? start;
-      const endHour=endExclusive>=24 ? 24 : (hours[endExclusive]?.hour ?? endExclusive);
-      ranges.push(`${String(startHour).padStart(2,"0")}:00–${String(endHour).padStart(2,"0")}:00`);
-      start=null;
+    const active=predicate(hour),atEnd=index===hours.length-1;
+    if(active&&start===null) start=index;
+    if(start!==null&&(!active||atEnd)){
+      const endExclusive=active&&atEnd?index+1:index;
+      const startHour=hours[start]?.hour??7;
+      const endHour=endExclusive<hours.length?hours[endExclusive].hour:7;
+      ranges.push(`${label(startHour)}–${label(endHour)}`); start=null;
     }
   });
   return ranges;
@@ -2282,8 +2500,8 @@ function renderWeather(){
     </div>
   `;
 
-  weatherSelectedDate = weatherData.daily.time.includes(weatherSelectedDate) ? weatherSelectedDate : weatherData.daily.time[0];
-  daysRoot.innerHTML=weatherData.daily.time.map(date=>{
+  weatherSelectedDate = weatherOperationalDates().includes(weatherSelectedDate) ? weatherSelectedDate : weatherOperationalDates()[0];
+  daysRoot.innerHTML=weatherOperationalDates().map(date=>{
     const day=weatherDayInfo(date);
     const risk=weatherRisk(day);
     const meta=weatherCodeMeta(day.code,true);
@@ -2338,7 +2556,7 @@ function renderWeatherDayDetail(date){
     <strong>${label}</strong>
     <div class="weather-band ${extraClass}">${cells}</div>
   </div>`;
-  const hourLabels=day.hours.map(h=>`<span>${h.hour%3===0?String(h.hour).padStart(2,"0"):""}</span>`).join("");
+  const hourLabels=day.hours.map((h,index)=>`<span>${index%3===0?String(h.hour).padStart(2,"0"):""}</span>`).join("");
   const lightCells=day.hours.map(h=>`<i class="${isNightHour(h,day)?"night":"day"}" title="${isNightHour(h,day)?"Noche":"Luz diurna"}"></i>`).join("");
   const fogCells=day.hours.map(h=>`<i class="${fogLevel(h)}" title="${String(h.hour).padStart(2,"0")}:00 · visibilidad ${weatherKm(h.visibility)}"></i>`).join("");
   const rainCells=day.hours.map(h=>`<i class="${rainLevel(h)}" title="${String(h.hour).padStart(2,"0")}:00 · lluvia ${h.precipitationProbability}%"></i>`).join("");
@@ -2348,8 +2566,8 @@ function renderWeatherDayDetail(date){
     <div class="card weather-detail-card">
       <div class="weather-detail-head">
         <div>
-          <span class="weather-eyebrow">DETALLE HORARIO</span>
-          <h2>${esc(weatherDateLabel(date,true))}</h2>
+          <span class="weather-eyebrow">GUARDIA METEOROLÓGICA · 07 A 07</span>
+          <h2>${esc(weatherDateLabel(date,true))} · 07:00 a 07:00</h2>
         </div>
         <span class="weather-detail-risk risk-${risk.level}">${risk.icon} ${esc(risk.label)}</span>
       </div>

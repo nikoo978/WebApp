@@ -1,38 +1,30 @@
-WEBN18 - ACTUALIZACIÓN PARA GIT Y VERCEL
+WEBN19 - ACTUALIZACIÓN PARA GIT Y VERCEL
 
-MEJORA DE FATIGA
-- La fatiga ahora se calcula en medias columnas.
-- X equivale a dos medias columnas.
-- X/ y /X equivalen a media columna.
-- Hasta 3 tiros continuos no se considera fatiga.
-- Ejemplo válido: /X X X X/ equivale exactamente a 3 tiros.
-- Para cortar una secuencia se exige una columna completa de descanso.
-- Un descanso parcial no corta la fatiga.
-- Ejemplo con fatiga: /X X X /X X.
-- Las celdas implicadas quedan resaltadas visualmente.
+LÓGICA OPERATIVA 07 A 07
+- Toda la planificación y el detalle meteorológico siguen el eje de guardia 07:00 a 07:00.
+- Las pestañas quedan ordenadas: Tabla, Tablas guardadas, Día, Clima, Tablero, Personal, Turnos 24 / Canes y +Licencias.
 
-ASIGNACIÓN AUTOMÁTICA DEL PERSONAL DE 24 HORAS
-- Al presionar Cargar al personal, WebN18 distribuye automáticamente las X
-  del personal de 24 h y Canes.
-- Cada agente recibe normalmente 7 tiros; el algoritmo puede usar 6 u 8
-  cuando resulta necesario para mejorar la cobertura.
-- Nunca asigna más de 3 X consecutivas.
-- Mantiene al menos una columna completa de descanso entre bloques.
-- Objetivo diurno: 5 puestos, con mínimo operativo de 4.
-- Objetivo nocturno: 7 puestos, con mínimo operativo de 6 y máximo recomendado de 8.
-- Considera primero la cobertura aportada por personal diario, rondines y
-  demás servicios antes de distribuir al personal de 24 horas.
-- Muestra un resumen visual de cobertura por cada franja.
+DESCANSOS D / H
+- Mantener presionada una celda: H, luego D y luego vacío.
+- En PC, Ctrl + click realiza el mismo ciclo.
+- D y H no suman puestos ni tiros.
+- D bloquea esa franja y obliga a recalcular las cruces automáticas.
+- /D y D/ representan descansos parciales aplicados automáticamente al reducir sobrecobertura.
+- Los rotativos de 48 h reciben D de 07 a 11.
+- También reciben D de 07 a 11 los recargos o rondines entrantes detectados en la tabla anterior o en su horario semanal.
 
-RECARGOS SUGERIDOS
-- Si aun usando el personal disponible no se alcanza el mínimo, muestra
-  sugerencias por franjas:
-  07 a 13
-  13 a 19
-  19 a 01
-  01 a 07
-- Indica cuántos recargos se necesitan y cuáles son los horarios débiles.
-- Son sugerencias visuales; no se agregan personas ficticias automáticamente.
+COBERTURA AUTOMÁTICA
+- Los Canes tienen un máximo absoluto de 3 tiros diarios.
+- Los centinelas de 24 h conservan normalmente 6 a 8 tiros.
+- Entre 20 y 07 se procura un descanso nocturno continuo de al menos 4 horas.
+- Solo ante déficit crítico se admite una alternativa de 3 horas, con fuerte penalización para evitarla.
+- La optimización trabaja por hora, evita superar 8 puestos y penaliza picos y subidas/bajadas bruscas.
+- Primero reduce al personal de 24; si no alcanza, reduce Rondines con /D o D/.
+- Los recargos sugeridos siempre son bloques de 3 tiros consecutivos: 07-13, 13-19, 19-01 o 01-07.
+
+CLIMA
+- El detalle horario se presenta de 07:00 a 07:00.
+- Se consultan 8 días al proveedor para poder completar las 7 guardias con la madrugada del día siguiente.
 
 ACTUALIZACIÓN
 1. Copiar el contenido del ZIP sobre la carpeta del repositorio.
@@ -41,8 +33,8 @@ ACTUALIZACIÓN
 
    git status
    git add .
-   git commit -m "Actualizar a WebN18 con fatiga y cobertura automática"
+   git commit -m "Actualizar a WebN19 con descansos y cobertura estable"
    git push
 
 No se agregaron dependencias ni variables de entorno.
-Los datos existentes de personal permanecen en Upstash.
+Los datos del personal permanecen guardados en Upstash.

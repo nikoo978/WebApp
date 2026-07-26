@@ -794,3 +794,12 @@ html[data-theme="dark"] .weather-now{background:linear-gradient(140deg,var(--acc
 @media print{
   .coverage-planner{display:none!important}
 }
+
+
+/* WebN19 · descansos y estabilización operativa */
+.shift-table td.descanso{position:relative;background:color-mix(in srgb,#4f7cff 18%,var(--surface))!important;color:#2048ad;font-weight:950;box-shadow:inset 0 0 0 2px color-mix(in srgb,#4f7cff 60%,transparent)}
+.shift-table td.descanso::after{content:"DESC";position:absolute;right:2px;bottom:0;font-size:.42rem;letter-spacing:.03em;opacity:.72}
+.shift-table td.marca-h{background:color-mix(in srgb,#8b5cf6 14%,var(--surface))!important;color:#6941c6;font-weight:900}
+.coverage-mini strong{font-variant-numeric:tabular-nums}
+html[data-theme="dark"] .shift-table td.descanso{color:#a9c0ff;background:color-mix(in srgb,#375fd6 30%,var(--surface))!important}
+@media(max-width:720px){.shift-table td.descanso::after{display:none}}
