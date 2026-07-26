@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN12";
+const APP_VERSION = "WebN13";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -527,6 +527,7 @@ function normalizeTurnos(t){
   return t;
 }
 async function init(){
+  bindTheme();
   fillSelects();
   bindTabs();
   bindPlanilla();
@@ -749,6 +750,37 @@ function fillSelects(){
 }
 function q(sel){ return document.querySelector(sel); }
 function qa(sel){ return [...document.querySelectorAll(sel)]; }
+
+const THEME_STORAGE_KEY = "shift-manager-theme";
+function preferredTheme(){
+  try{
+    const saved=localStorage.getItem(THEME_STORAGE_KEY);
+    if(saved === "light" || saved === "dark") return saved;
+  }catch(_){ }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function applyTheme(theme){
+  const next=theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme=next;
+  const button=q("#themeToggle");
+  const icon=q("#themeIcon");
+  if(icon) icon.textContent=next === "dark" ? "☀" : "☾";
+  if(button){
+    const label=next === "dark" ? "Activar modo claro" : "Activar modo oscuro";
+    button.setAttribute("aria-label",label);
+    button.title=label;
+  }
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content=next === "dark" ? "#0b1220" : "#f4f7fb";
+}
+function bindTheme(){
+  applyTheme(preferredTheme());
+  q("#themeToggle")?.addEventListener("click",()=>{
+    const next=document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    try{ localStorage.setItem(THEME_STORAGE_KEY,next); }catch(_){ }
+    applyTheme(next);
+  });
+}
 
 function bindTabs(){
   qa(".tab").forEach(btn=>{

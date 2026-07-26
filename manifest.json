@@ -1,6 +1,6 @@
 {
-  "name": "Shift Manager WebN12",
-  "short_name": "WebN12",
+  "name": "Gestión de turnos WebN13",
+  "short_name": "WebN13",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#e5e5e5",

@@ -1,27 +1,24 @@
-WEBN12 - ACTUALIZACIÓN PARA GIT Y VERCEL
+WEBN13 - INTERFAZ MODERNA Y RESPONSIVE
 
-MEJORA DEL TABLERO
-- Por defecto, el tablero muestra únicamente personal de servicios diarios.
-- Los horarios rotativos semanales siguen visibles y se identifican claramente como:
-  Rotativo · Semana A
-  Rotativo · Semana B
-- Se agregó el interruptor "Mostrar también personal de 24 h".
-- Al activarlo se incorporan:
-  * turnos fijos de 24 horas;
-  * rotativos de 48 horas;
-  * personal de Canes.
-- El filtro se aplica a las cantidades visibles y al detalle que se abre al presionar
-  Lunes/Mañana, Miércoles/Noche, etc.
-- Cada actualización o recarga vuelve al modo predeterminado de servicios diarios.
+CAMBIOS VISUALES
+- Interfaz modernizada con nueva paleta, tarjetas, bordes, sombras y espaciado.
+- Modo claro y oscuro mediante el botón pequeño de luna/sol en la barra superior.
+- El tema elegido queda guardado en el dispositivo.
+- Navegación reorganizada y completamente responsive.
+- La pestaña Datos quedó separada del resto y se identifica con un engranaje.
+- Barra de acciones de la planilla agrupada por fecha/turno, acciones principales, edición y exportación.
+- En celulares y tablets los botones se reacomodan automáticamente.
+- Texto de las celdas de la columna Servicio centrado, incluido el selector.
+- Se mantiene toda la lógica y los datos de WebN12.
 
-ACTUALIZACIÓN
-1. Copiar el contenido del ZIP sobre la carpeta del repositorio actual.
+ACTUALIZACIÓN CON GIT
+1. Copiar el contenido del ZIP sobre el repositorio actual.
 2. No borrar .git ni .env.local.
 3. Ejecutar:
 
    git status
    git add .
-   git commit -m "Actualizar a WebN12 con filtro de personal en tablero"
+   git commit -m "Actualizar a WebN13 con interfaz moderna y modo oscuro"
    git push
 
-No se agregaron nuevas dependencias. No hace falta ejecutar npm install.
+No se agregaron dependencias. No hace falta ejecutar npm install.

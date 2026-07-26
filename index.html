@@ -3,10 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Shift Manager WebN12</title>
+  <title>Gestión de turnos · WebN13</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <meta name="theme-color" content="#315a9f">
+  <meta name="theme-color" content="#0f172a">
+  <script>
+    (()=>{
+      try{
+        const saved=localStorage.getItem("shift-manager-theme");
+        const theme=saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme=theme;
+      }catch(_){ document.documentElement.dataset.theme="light"; }
+    })();
+  </script>
 </head>
 <body>
   <div id="lockScreen" class="lock-screen">
@@ -19,43 +28,66 @@
     </form>
   </div>
 
+  <header class="app-topbar app-controls">
+    <div class="app-brand" aria-label="Gestión de turnos">
+      <span class="brand-mark" aria-hidden="true">◆</span>
+      <div class="brand-copy">
+        <strong>Gestión de turnos</strong>
+        <span id="statusBadge" class="status">Conectando…</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="themeToggle" class="icon-button theme-toggle" type="button" aria-label="Activar modo oscuro" title="Cambiar tema">
+        <span id="themeIcon" aria-hidden="true">☾</span>
+      </button>
+    </div>
+  </header>
+
   <nav class="tabs app-controls" aria-label="Secciones">
-    <button class="tab active" data-tab="planilla">Planilla</button>
-    <button class="tab" data-tab="tablero">Tablero</button>
-    <button class="tab" data-tab="dia">Día</button>
-    <button class="tab" data-tab="personal">Personal</button>
-    <button class="tab" data-tab="turnos">Turnos 24 / Canes</button>
-    <button class="tab" data-tab="vacaciones">Licencias</button>
-    <button class="tab" data-tab="datos">Datos</button>
+    <div class="tabs-main">
+      <button class="tab active" data-tab="planilla"><span class="tab-icon" aria-hidden="true">▦</span><span>Planilla</span></button>
+      <button class="tab" data-tab="tablero"><span class="tab-icon" aria-hidden="true">▥</span><span>Tablero</span></button>
+      <button class="tab" data-tab="dia"><span class="tab-icon" aria-hidden="true">◷</span><span>Día</span></button>
+      <button class="tab" data-tab="personal"><span class="tab-icon" aria-hidden="true">♟</span><span>Personal</span></button>
+      <button class="tab" data-tab="turnos"><span class="tab-icon" aria-hidden="true">⏱</span><span>Turnos 24 / Canes</span></button>
+      <button class="tab" data-tab="vacaciones"><span class="tab-icon" aria-hidden="true">✚</span><span>Licencias</span></button>
+    </div>
+    <div class="tabs-tools">
+      <button class="tab tab-settings" data-tab="datos" title="Datos, backups y configuración"><span class="tab-icon gear-icon" aria-hidden="true">⚙</span><span>Datos</span></button>
+    </div>
   </nav>
 
   <button id="btnShowControls" class="show-controls hidden" type="button">☰ Controles</button>
 
   <main>
     <section id="tab-planilla" class="panel active">
-      <div class="toolbar desktop-like app-controls">
-        <button id="btnAddRow">Agregar fila</button>
-        <button id="btnSaveAll" class="primary">Guardar</button>
-        <button id="btnLoadDay" class="primary">Cargar personal del día</button>
-        <button id="btnRecoverLastTable" class="secondary">Recuperar última tabla</button>
-        <button id="btnValidateData">Validar datos</button>
-        <button id="btnSort">Ordenar por servicio</button>
-        <button id="btnClear">Limpiar filas</button>
-        <button id="btnExportJpg">Exportar JPG</button>
-        <button id="btnPrint">Imprimir / PDF</button>
-        <button id="btnHideControls" class="secondary">Ocultar controles</button>
-        <button id="btnFullscreen" class="secondary">Pantalla completa</button>
-        <button id="btnUndoTop" class="secondary">Deshacer</button>
+      <div class="planilla-commandbar app-controls">
+        <div class="commandbar-fields" aria-label="Fecha y turno de la planilla">
+          <label><span>Fecha</span><input id="planDate" type="date"></label>
+          <label><span>Día</span><select id="planDay"></select></label>
+          <label><span>Turno 24</span><select id="planTurno"></select></label>
+        </div>
 
-        <label>Fecha
-          <input id="planDate" type="date">
-        </label>
-        <label>Día
-          <select id="planDay"></select>
-        </label>
-        <label>Turno 24
-          <select id="planTurno"></select>
-        </label>
+        <div class="commandbar-actions">
+          <div class="action-cluster primary-cluster" aria-label="Acciones principales">
+            <button id="btnLoadDay" class="primary"><span class="btn-icon" aria-hidden="true">↻</span>Cargar personal</button>
+            <button id="btnSaveAll" class="primary"><span class="btn-icon" aria-hidden="true">✓</span>Guardar</button>
+            <button id="btnRecoverLastTable" class="secondary"><span class="btn-icon" aria-hidden="true">⟲</span>Recuperar tabla</button>
+            <button id="btnValidateData"><span class="btn-icon" aria-hidden="true">◇</span>Validar</button>
+          </div>
+          <div class="action-cluster edit-cluster" aria-label="Edición de filas">
+            <button id="btnAddRow"><span class="btn-icon" aria-hidden="true">＋</span>Fila</button>
+            <button id="btnSort"><span class="btn-icon" aria-hidden="true">⇅</span>Ordenar</button>
+            <button id="btnClear" class="soft-danger"><span class="btn-icon" aria-hidden="true">⌫</span>Limpiar</button>
+          </div>
+          <div class="action-cluster output-cluster" aria-label="Exportación y vista">
+            <button id="btnExportJpg"><span class="btn-icon" aria-hidden="true">▧</span>JPG</button>
+            <button id="btnPrint"><span class="btn-icon" aria-hidden="true">▤</span>Imprimir / PDF</button>
+            <button id="btnUndoTop" class="secondary"><span class="btn-icon" aria-hidden="true">↶</span>Deshacer</button>
+            <button id="btnFullscreen" class="secondary"><span class="btn-icon" aria-hidden="true">⛶</span>Pantalla completa</button>
+            <button id="btnHideControls" class="secondary"><span class="btn-icon" aria-hidden="true">—</span>Ocultar controles</button>
+          </div>
+        </div>
       </div>
 
       <div class="hint">
@@ -243,8 +275,8 @@
       </div>
     </section>
 
-    <section id="tab-datos" class="panel">
-      <div class="card">
+    <section id="tab-datos" class="panel settings-panel">
+      <div class="card settings-card">
         <h2>Administración, respaldos e historial</h2>
         <p>Los datos operativos se guardan en la nube. Esta sección permite exportar, importar, deshacer y generar backups.</p>
         <div class="actions">
