@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN17";
+const APP_VERSION = "WebN18";
 const WEATHER_LOCATION = Object.freeze({
   name:"Junín",
   province:"Buenos Aires",
@@ -278,7 +278,8 @@ function cleanPlanillaForDate(date=new Date()){
     dia:dayName(d),
     turno:turnoFromDate(d),
     deben:Array(12).fill(""),
-    rows:[blankRow()]
+    rows:[blankRow()],
+    recargo_suggestions:[]
   };
 }
 function hasMeaningfulPlanilla(planilla){
@@ -646,6 +647,7 @@ function normalizeLoadedState(){
   state.planilla ||= {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
   state.planilla.deben ||= Array(12).fill("");
   state.planilla.rows ||= [];
+  state.planilla.recargo_suggestions ||= [];
   ensureTrailingBlankRow(state.planilla);
   state.history ||= [];
   state.undoStack = (state.undoStack || []).slice(0, MAX_UNDO_SNAPSHOTS);
@@ -1012,7 +1014,7 @@ function bindPlanilla(){
   q("#btnSaveAll").onclick = ()=> saveCurrentTableCopy("Botón Guardar");
   q("#btnLoadDay").onclick = loadDay;
   q("#btnRecoverLastTable").onclick = recoverLastPlanilla;
-  q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[blankRow()]; save({action:"Limpiar filas"}); renderAll(); } };
+  q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[blankRow()]; state.planilla.recargo_suggestions=[]; save({action:"Limpiar filas"}); renderAll(); } };
   q("#btnPrint").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de imprimir")) return; window.print(); };
   q("#btnExportJpg").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de exportar")) return; exportPlanillaJpg(); };
   q("#planDate").addEventListener("change", ()=>{
@@ -1132,6 +1134,8 @@ function renderPlanilla(){
         const r=Number(td.dataset.r), c=Number(td.dataset.c);
         longPressTimer = setTimeout(()=>{
           state.planilla.rows[r].cells[c] = "H";
+          state.planilla.rows[r].auto_assigned=false;
+          state.planilla.rows[r].auto_shots=tiros(state.planilla.rows[r]);
           useAutomaticRow();
           longPressFired = true;
           save({action:"Marcar H"}); renderAll();
@@ -1152,6 +1156,11 @@ function renderPlanilla(){
         const idx = seq.indexOf(current);
         row.cells[c] = idx >= 0 ? seq[(idx + 1) % seq.length] : "X";
       }
+      row.auto_assigned=false;
+      row.auto_shots=tiros(row);
+      state.planilla.recargo_suggestions=buildRecargoSuggestions(
+        coverageDetail(meaningfulPlanillaRows(state.planilla.rows)).map(item=>item.value)
+      );
       useAutomaticRow();
       save({action:"Modificar celda de horario"}); renderAll();
     };
@@ -1172,15 +1181,54 @@ function renderPlanilla(){
 function esc(s){ return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function formatNum(n){ return Number.isInteger(n) ? String(n) : String(n).replace(".",","); }
 function tiros(row){ return (row.cells||[]).reduce((acc,v)=> acc + (FULL.has(token(v))?1:HALF.has(token(v))?0.5:0),0); }
+function cellHalfShots(value){
+  const t=token(value);
+  if(FULL.has(t)) return [1,1];
+  if(HALF_LEFT.has(t)) return [1,0];
+  if(HALF_RIGHT.has(t)) return [0,1];
+  return [0,0];
+}
 function fatigueCols(row){
-  const set = new Set(), key = serviceKey(row.servicio);
-  if(!FATIGUE_SERVICES.has(key)) return set;
-  let chain = [];
-  (row.cells||[]).forEach((v,i)=>{
-    if(FULL.has(token(v))){ chain.push(i); if(chain.length>3) chain.forEach(x=>set.add(x)); }
-    else chain = [];
+  const marked=new Set(), key=serviceKey(row.servicio);
+  if(!FATIGUE_SERVICES.has(key)) return marked;
+
+  const halves=[];
+  (row.cells||[]).forEach((value,column)=>{
+    cellHalfShots(value).forEach((working,half)=>halves.push({working,column,half}));
   });
-  return set;
+
+  // Un descanso válido debe ocupar una columna completa: dos medias horas operativas
+  // consecutivas dentro del modelo de bloques. Los descansos de solo medio bloque
+  // no cortan la secuencia de fatiga.
+  let groupStart=0;
+  while(groupStart<halves.length){
+    while(groupStart<halves.length && !halves[groupStart].working) groupStart++;
+    if(groupStart>=halves.length) break;
+
+    let cursor=groupStart;
+    let worked=0;
+    let lastWork=groupStart;
+    while(cursor<halves.length){
+      if(halves[cursor].working){
+        worked++;
+        lastWork=cursor;
+        cursor++;
+        continue;
+      }
+      let restStart=cursor;
+      while(cursor<halves.length && !halves[cursor].working) cursor++;
+      const restLength=cursor-restStart;
+      if(restLength>=2) break;
+    }
+
+    if(worked>6){
+      for(let i=groupStart;i<=lastWork;i++){
+        if(halves[i].working) marked.add(halves[i].column);
+      }
+    }
+    groupStart=cursor;
+  }
+  return marked;
 }
 function coverageDetail(rows){
   return HOURS.map((_,c)=>{
@@ -1288,6 +1336,153 @@ function standardRow(name,service,cells,meta={}){
   };
 }
 
+
+const COVERAGE_TARGETS = Object.freeze({
+  ideal:[5,5,5,5,5,5,7,7,7,7,7,7],
+  minimum:[4,4,4,4,4,4,6,6,6,6,6,6],
+  maximum:[8,8,8,8,8,8,8,8,8,8,8,8]
+});
+const RECARGO_WINDOWS = Object.freeze([
+  {label:"07 a 13",cols:[0,1,2]},
+  {label:"13 a 19",cols:[3,4,5]},
+  {label:"19 a 01",cols:[6,7,8]},
+  {label:"01 a 07",cols:[9,10,11]}
+]);
+
+function validAutoPattern(indices){
+  if(indices.length<6 || indices.length>8) return false;
+  const active=new Set(indices);
+  let run=0;
+  for(let i=0;i<12;i++){
+    if(active.has(i)){ run++; if(run>3) return false; }
+    else run=0;
+  }
+  return true;
+}
+function buildAutoPatterns(){
+  const patterns=[];
+  const pick=(start,chosen)=>{
+    if(chosen.length>=6 && validAutoPattern(chosen)){
+      const cells=Array(12).fill("");
+      chosen.forEach(i=>cells[i]="X");
+      patterns.push({indices:[...chosen],cells,count:chosen.length});
+    }
+    if(chosen.length===8) return;
+    for(let i=start;i<12;i++){
+      chosen.push(i);
+      if(validAutoPattern(chosen) || chosen.length<6) pick(i+1,chosen);
+      chosen.pop();
+    }
+  };
+  pick(0,[]);
+  return patterns;
+}
+const AUTO_24_PATTERNS = buildAutoPatterns();
+
+function patternScore(pattern,coverage,personIndex){
+  let score=0;
+  pattern.indices.forEach(i=>{
+    const ideal=COVERAGE_TARGETS.ideal[i];
+    const minimum=COVERAGE_TARGETS.minimum[i];
+    const maximum=COVERAGE_TARGETS.maximum[i];
+    const current=coverage[i];
+    if(current<minimum) score += (minimum-current)*120;
+    else if(current<ideal) score += (ideal-current)*45;
+    else score -= (current-ideal+1)*18;
+    if(i>=6) score += 10;
+    if(current>=maximum) score -= 500;
+  });
+  // La carga habitual es 7 tiros. Se permite 6 u 8 cuando mejora la cobertura.
+  score -= Math.abs(pattern.count-7)*7;
+  // Pequeña rotación para no entregar el mismo patrón a todos.
+  score += pattern.indices.reduce((sum,i)=>sum+((i+personIndex)%12===0?1.5:0),0);
+  return score;
+}
+function assignAutomatic24Coverage(){
+  const rows=state.planilla.rows||[];
+  const operationalRows=rows.filter(row=>!["24hs","canes"].includes(serviceKey(row.servicio)));
+  const coverage=coverageDetail(operationalRows).map(item=>item.value);
+  const staff24=rows.filter(row=>["24hs","canes"].includes(serviceKey(row.servicio)));
+
+  staff24.forEach((row,personIndex)=>{
+    let best=null,bestScore=-Infinity;
+    AUTO_24_PATTERNS.forEach(pattern=>{
+      const score=patternScore(pattern,coverage,personIndex);
+      if(score>bestScore){ bestScore=score; best=pattern; }
+    });
+    row.cells=best ? [...best.cells] : Array(12).fill("");
+    row.auto_assigned=true;
+    row.auto_shots=best?.count||0;
+    (best?.indices||[]).forEach(i=>coverage[i]++);
+  });
+
+  state.planilla.recargo_suggestions=buildRecargoSuggestions(coverage);
+  return {coverage,staffCount:staff24.length};
+}
+function buildRecargoSuggestions(coverage){
+  return RECARGO_WINDOWS.map(window=>{
+    const deficits=window.cols.map(i=>Math.max(0,COVERAGE_TARGETS.minimum[i]-Number(coverage[i]||0)));
+    const quantity=Math.max(0,...deficits);
+    if(!quantity) return null;
+    const weakest=window.cols
+      .map(i=>({hour:HOURS[i],coverage:Number(coverage[i]||0),minimum:COVERAGE_TARGETS.minimum[i]}))
+      .filter(item=>item.coverage<item.minimum);
+    return {
+      range:window.label,
+      quantity,
+      weakest,
+      reason:`Faltan ${quantity} para alcanzar el mínimo operativo en la franja.`
+    };
+  }).filter(Boolean);
+}
+function renderCoveragePlanner(){
+  const root=q("#coveragePlanner");
+  if(!root) return;
+  const rows=meaningfulPlanillaRows(state.planilla.rows);
+  const assigned=rows.filter(row=>row.auto_assigned && ["24hs","canes"].includes(serviceKey(row.servicio)));
+  const suggestions=state.planilla.recargo_suggestions||[];
+  if(!assigned.length && !suggestions.length){
+    root.classList.add("hidden");
+    root.innerHTML="";
+    return;
+  }
+  const coverage=coverageDetail(rows);
+  const belowMinimum=coverage
+    .map((item,i)=>({i,value:item.value,min:COVERAGE_TARGETS.minimum[i]}))
+    .filter(item=>item.value<item.min);
+  root.classList.remove("hidden");
+  root.innerHTML=`
+    <div class="coverage-planner-head">
+      <div>
+        <span>PLANIFICACIÓN AUTOMÁTICA</span>
+        <strong>${assigned.length} agentes de 24 h distribuidos con control de fatiga</strong>
+      </div>
+      <div class="coverage-planner-state ${belowMinimum.length?"warning":"ok"}">
+        ${belowMinimum.length?`⚠ ${belowMinimum.length} franjas debajo del mínimo`:"✓ Cobertura mínima alcanzada"}
+      </div>
+    </div>
+    <div class="coverage-mini-grid">
+      ${coverage.map((item,i)=>{
+        const level=item.value<COVERAGE_TARGETS.minimum[i]?"critical":item.value<COVERAGE_TARGETS.ideal[i]?"caution":item.value<=8?"safe":"high";
+        return `<div class="coverage-mini ${level}">
+          <small>${HOURS[i]}</small><strong>${item.display}</strong><span>mín ${COVERAGE_TARGETS.minimum[i]} · ideal ${COVERAGE_TARGETS.ideal[i]}</span>
+        </div>`;
+      }).join("")}
+    </div>
+    ${suggestions.length?`
+      <div class="recargo-suggestions">
+        <div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Solo cuando el personal disponible no alcanza el mínimo.</small></div></div>
+        <div class="recargo-cards">
+          ${suggestions.map(item=>`<div class="recargo-card">
+            <b>${item.quantity} × ${item.range}</b>
+            <span>${esc(item.reason)}</span>
+            <small>${item.weakest.map(x=>`${x.hour}: ${formatNum(x.coverage)}/${x.minimum}`).join(" · ")}</small>
+          </div>`).join("")}
+        </div>
+      </div>`:""}
+  `;
+}
+
 function loadDay(){
   const masterErrors=validateMasterData();
   if(showValidationErrors(masterErrors,"Corregí los datos antes de cargar la tabla")) return;
@@ -1310,6 +1505,7 @@ function loadDay(){
     });
   });
   addStandardRows(d);
+  assignAutomatic24Coverage();
   sortRows();
   const planErrors=validatePlanillaData();
   if(planErrors.length){
