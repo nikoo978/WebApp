@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Gestión de turnos · WebN13</title>
+  <title>Gestión de turnos</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <meta name="theme-color" content="#0f172a">
@@ -27,25 +27,10 @@
       <div id="pinError" class="pin-error"></div>
     </form>
   </div>
-
-  <header class="app-topbar app-controls">
-    <div class="app-brand" aria-label="Gestión de turnos">
-      <span class="brand-mark" aria-hidden="true">◆</span>
-      <div class="brand-copy">
-        <strong>Gestión de turnos</strong>
-        <span id="statusBadge" class="status">Conectando…</span>
-      </div>
-    </div>
-    <div class="topbar-actions">
-      <button id="themeToggle" class="icon-button theme-toggle" type="button" aria-label="Activar modo oscuro" title="Cambiar tema">
-        <span id="themeIcon" aria-hidden="true">☾</span>
-      </button>
-    </div>
-  </header>
-
   <nav class="tabs app-controls" aria-label="Secciones">
     <div class="tabs-main">
-      <button class="tab active" data-tab="planilla"><span class="tab-icon" aria-hidden="true">▦</span><span>Planilla</span></button>
+      <button class="tab active" data-tab="planilla"><span class="tab-icon" aria-hidden="true">▦</span><span>Tabla</span></button>
+      <button class="tab" data-tab="tablas"><span class="tab-icon" aria-hidden="true">▤</span><span>Tablas guardadas</span></button>
       <button class="tab" data-tab="tablero"><span class="tab-icon" aria-hidden="true">▥</span><span>Tablero</span></button>
       <button class="tab" data-tab="dia"><span class="tab-icon" aria-hidden="true">◷</span><span>Día</span></button>
       <button class="tab" data-tab="personal"><span class="tab-icon" aria-hidden="true">♟</span><span>Personal</span></button>
@@ -53,9 +38,14 @@
       <button class="tab" data-tab="vacaciones"><span class="tab-icon" aria-hidden="true">✚</span><span>Licencias</span></button>
     </div>
     <div class="tabs-tools">
+      <button id="themeToggle" class="icon-button theme-toggle nav-theme-toggle" type="button" aria-label="Activar modo oscuro" title="Cambiar tema">
+        <span id="themeIcon" aria-hidden="true">☾</span>
+      </button>
       <button class="tab tab-settings" data-tab="datos" title="Datos, backups y configuración"><span class="tab-icon gear-icon" aria-hidden="true">⚙</span><span>Datos</span></button>
     </div>
   </nav>
+
+  <div id="statusToast" class="sync-toast hidden" role="status" aria-live="polite"></div>
 
   <button id="btnShowControls" class="show-controls hidden" type="button">☰ Controles</button>
 
@@ -68,25 +58,17 @@
           <label><span>Turno 24</span><select id="planTurno"></select></label>
         </div>
 
-        <div class="commandbar-actions">
-          <div class="action-cluster primary-cluster" aria-label="Acciones principales">
-            <button id="btnLoadDay" class="primary"><span class="btn-icon" aria-hidden="true">↻</span>Cargar personal</button>
-            <button id="btnSaveAll" class="primary"><span class="btn-icon" aria-hidden="true">✓</span>Guardar</button>
-            <button id="btnRecoverLastTable" class="secondary"><span class="btn-icon" aria-hidden="true">⟲</span>Recuperar tabla</button>
-            <button id="btnValidateData"><span class="btn-icon" aria-hidden="true">◇</span>Validar</button>
-          </div>
-          <div class="action-cluster edit-cluster" aria-label="Edición de filas">
-            <button id="btnAddRow"><span class="btn-icon" aria-hidden="true">＋</span>Fila</button>
-            <button id="btnSort"><span class="btn-icon" aria-hidden="true">⇅</span>Ordenar</button>
-            <button id="btnClear" class="soft-danger"><span class="btn-icon" aria-hidden="true">⌫</span>Limpiar</button>
-          </div>
-          <div class="action-cluster output-cluster" aria-label="Exportación y vista">
-            <button id="btnExportJpg"><span class="btn-icon" aria-hidden="true">▧</span>JPG</button>
-            <button id="btnPrint"><span class="btn-icon" aria-hidden="true">▤</span>Imprimir / PDF</button>
-            <button id="btnUndoTop" class="secondary"><span class="btn-icon" aria-hidden="true">↶</span>Deshacer</button>
-            <button id="btnFullscreen" class="secondary"><span class="btn-icon" aria-hidden="true">⛶</span>Pantalla completa</button>
-            <button id="btnHideControls" class="secondary"><span class="btn-icon" aria-hidden="true">—</span>Ocultar controles</button>
-          </div>
+        <div class="commandbar-actions ordered-controls" aria-label="Controles de la tabla">
+          <button id="btnLoadDay" class="primary"><span class="btn-icon" aria-hidden="true">↻</span>Cargar al personal</button>
+          <button id="btnSaveAll" class="primary"><span class="btn-icon" aria-hidden="true">✓</span>Guardar</button>
+          <button id="btnRecoverLastTable" class="secondary"><span class="btn-icon" aria-hidden="true">⟲</span>Recuperar Tabla</button>
+          <button id="btnAddRow"><span class="btn-icon" aria-hidden="true">＋</span>Fila</button>
+          <button id="btnUndoTop" class="secondary"><span class="btn-icon" aria-hidden="true">↶</span>Deshacer</button>
+          <button id="btnClear" class="soft-danger"><span class="btn-icon" aria-hidden="true">⌫</span>Limpiar</button>
+          <button id="btnFullscreen" class="secondary"><span class="btn-icon" aria-hidden="true">⛶</span>Pantalla completa</button>
+          <button id="btnHideControls" class="secondary"><span class="btn-icon" aria-hidden="true">—</span>Ocultar controles</button>
+          <button id="btnExportJpg"><span class="btn-icon" aria-hidden="true">▧</span>JPG</button>
+          <button id="btnPrint"><span class="btn-icon" aria-hidden="true">▤</span>Imprimir</button>
         </div>
       </div>
 
@@ -103,6 +85,21 @@
       </div>
     </section>
 
+    <section id="tab-tablas" class="panel">
+      <div class="card saved-tables-card">
+        <div class="saved-tables-head">
+          <div>
+            <h2>Tablas guardadas</h2>
+            <p>Podés conservar hasta 10 tablas ficticias. Se permiten varias tablas con la misma fecha; se distinguen por la fecha y hora en que fueron guardadas.</p>
+          </div>
+          <button id="btnSaveCurrentTable" class="primary" type="button">Guardar la tabla actual</button>
+        </div>
+        <div id="savedTablesSummary" class="saved-tables-summary"></div>
+        <div class="table-scroll saved-tables-scroll">
+          <table class="data-table striped" id="savedTablesTable"></table>
+        </div>
+      </div>
+    </section>
 
     <section id="tab-tablero" class="panel">
       <div id="dashboardContent"></div>

@@ -1,24 +1,32 @@
-WEBN13 - INTERFAZ MODERNA Y RESPONSIVE
+WEBN15 - ACTUALIZACIÓN PARA GIT Y VERCEL
 
-CAMBIOS VISUALES
-- Interfaz modernizada con nueva paleta, tarjetas, bordes, sombras y espaciado.
-- Modo claro y oscuro mediante el botón pequeño de luna/sol en la barra superior.
-- El tema elegido queda guardado en el dispositivo.
-- Navegación reorganizada y completamente responsive.
-- La pestaña Datos quedó separada del resto y se identifica con un engranaje.
-- Barra de acciones de la planilla agrupada por fecha/turno, acciones principales, edición y exportación.
-- En celulares y tablets los botones se reacomodan automáticamente.
-- Texto de las celdas de la columna Servicio centrado, incluido el selector.
-- Se mantiene toda la lógica y los datos de WebN12.
+CAMBIOS PRINCIPALES
+- La pestaña Planilla ahora se llama Tabla.
+- Nueva pestaña Tablas guardadas.
+- El botón Guardar conserva una copia de la tabla actual.
+- Se guardan hasta 10 tablas ficticias.
+- Se permiten varias copias con la misma fecha; se distinguen por la hora de guardado.
+- Las tablas guardadas pueden abrirse o borrarse.
+- Al refrescar, la Tabla sigue iniciando limpia con la fecha real del día.
+- Recuperar Tabla conserva la recuperación rápida de la última tabla de trabajo.
+- La validación funciona internamente: solo aparece una ventana cuando existen errores.
+- Se eliminó el botón Validar y no se muestra mensaje de validación exitosa.
+- Orden de controles solicitado:
+  Cargar al personal, Guardar, Recuperar Tabla, Fila, Deshacer, Limpiar,
+  Pantalla completa, Ocultar controles, JPG, Imprimir.
+- El estado Nube sincronizada aparece como aviso pequeño y temporal.
+- Se eliminó el encabezado visible Gestión de turnos.
+- El botón sol/luna está inmediatamente a la izquierda del engranaje.
+- El título del navegador muestra únicamente Gestión de turnos.
 
-ACTUALIZACIÓN CON GIT
-1. Copiar el contenido del ZIP sobre el repositorio actual.
+ACTUALIZACIÓN
+1. Copiar el contenido del ZIP sobre la carpeta del repositorio actual.
 2. No borrar .git ni .env.local.
 3. Ejecutar:
 
    git status
    git add .
-   git commit -m "Actualizar a WebN13 con interfaz moderna y modo oscuro"
+   git commit -m "Actualizar a WebN15 con tablas guardadas y controles reorganizados"
    git push
 
-No se agregaron dependencias. No hace falta ejecutar npm install.
+No se agregaron nuevas dependencias.

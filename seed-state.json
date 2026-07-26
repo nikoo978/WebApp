@@ -4025,9 +4025,11 @@
     ],
     "rows": []
   },
-  "app_version": "WebN13",
+  "app_version": "WebN15",
   "personal_catalog_version": 8,
   "last_planilla_draft": null,
   "personal_backups": [],
-  "personal_backups_updated_at": ""
+  "personal_backups_updated_at": "",
+  "saved_tables": [],
+  "saved_tables_updated_at": ""
 }

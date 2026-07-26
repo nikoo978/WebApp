@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN13";
+const APP_VERSION = "WebN15";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -34,6 +34,7 @@ const PERSONAL_UPDATE_NAMES = new Set([
 const MAX_CLOUD_BACKUPS = 20;
 const MAX_UNDO_SNAPSHOTS = 10;
 const MAX_PERSONAL_BACKUPS = 5;
+const MAX_SAVED_TABLES = 10;
 
 let state = null;
 let selectedTurnoAdmin = "A";
@@ -45,6 +46,7 @@ let longPressTimer = null;
 let longPressFired = false;
 let lastContentSnapshot = "";
 let saveTimer = null;
+let statusTimer = null;
 let isRestoringUndo = false;
 let lastPlanillaSnapshot = "";
 let dashboardInclude24 = false;
@@ -303,6 +305,12 @@ function mergeLocalRecoveryData(){
       state.personal_backups=(cached.personal_backups||[]).slice(0,MAX_PERSONAL_BACKUPS);
       state.personal_backups_updated_at=cached.personal_backups_updated_at;
     }
+    const cloudTablesTime=state.saved_tables_updated_at ? new Date(state.saved_tables_updated_at).getTime() : 0;
+    const localTablesTime=cached.saved_tables_updated_at ? new Date(cached.saved_tables_updated_at).getTime() : 0;
+    if(localTablesTime>cloudTablesTime){
+      state.saved_tables=(cached.saved_tables||[]).slice(0,MAX_SAVED_TABLES);
+      state.saved_tables_updated_at=cached.saved_tables_updated_at;
+    }
   }catch{}
 }
 function capturePlanillaDraftIfChanged(options={}){
@@ -500,7 +508,9 @@ function loadState(){
     turnos: normalizeTurnos(clone(window.SEED_TURNOS || {})),
     planilla: cleanPlanillaForDate(new Date()),
     last_planilla_draft:null,
-    personal_backups:[]
+    personal_backups:[],
+    saved_tables:[],
+    saved_tables_updated_at:""
   };
 }
 function normalizeTurnos(t){
@@ -535,6 +545,7 @@ async function init(){
   bindLicenses();
   bindTurnos();
   bindDatos();
+  bindSavedTables();
   bindDashboard();
   bindDailyView();
   bindPin();
@@ -623,6 +634,8 @@ function normalizeLoadedState(){
   state.backups = (state.backups || []).slice(0, MAX_CLOUD_BACKUPS);
   state.personal_backups = (state.personal_backups || []).slice(0, MAX_PERSONAL_BACKUPS);
   state.personal_backups_updated_at ||= "";
+  state.saved_tables = (state.saved_tables || []).filter(item=>item?.id && item?.planilla).slice(0, MAX_SAVED_TABLES);
+  state.saved_tables_updated_at ||= "";
   state.last_planilla_draft ||= null;
   state.backup_settings ||= {frequency:"daily", last_auto_backup_at:""};
   state.app_version = APP_VERSION;
@@ -635,6 +648,8 @@ function contentState(){
     last_planilla_draft: state.last_planilla_draft || null,
     personal_backups: state.personal_backups || [],
     personal_backups_updated_at: state.personal_backups_updated_at || "",
+    saved_tables: state.saved_tables || [],
+    saved_tables_updated_at: state.saved_tables_updated_at || "",
     backup_settings: state.backup_settings || {frequency:"daily", last_auto_backup_at:""}
   };
 }
@@ -686,6 +701,8 @@ function restoreContentSnapshot(data){
   state.last_planilla_draft = data.last_planilla_draft || state.last_planilla_draft || null;
   state.personal_backups = (data.personal_backups || state.personal_backups || []).slice(0,MAX_PERSONAL_BACKUPS);
   state.personal_backups_updated_at = data.personal_backups_updated_at || state.personal_backups_updated_at || "";
+  state.saved_tables = (data.saved_tables || state.saved_tables || []).slice(0,MAX_SAVED_TABLES);
+  state.saved_tables_updated_at = data.saved_tables_updated_at || state.saved_tables_updated_at || "";
   state.backup_settings = data.backup_settings || state.backup_settings || {frequency:"daily", last_auto_backup_at:""};
   lastPlanillaSnapshot = JSON.stringify(state.planilla);
 }
@@ -724,11 +741,18 @@ function maybeAutoBackup(){
 }
 
 function setStatus(text, mode){
-  const badge = q("#statusBadge");
-  if(!badge) return;
-  badge.textContent = text;
-  badge.classList.remove("saving","error","ok");
-  if(mode) badge.classList.add(mode);
+  const toast = q("#statusToast");
+  if(!toast) return;
+  clearTimeout(statusTimer);
+  toast.textContent = text;
+  toast.classList.remove("hidden","saving","error","ok","show");
+  if(mode) toast.classList.add(mode);
+  requestAnimationFrame(()=>toast.classList.add("show"));
+  const delay = mode === "error" ? 4800 : mode === "saving" ? 1200 : 1800;
+  statusTimer = setTimeout(()=>{
+    toast.classList.remove("show");
+    setTimeout(()=>toast.classList.add("hidden"),180);
+  },delay);
 }
 async function toggleFullscreen(){
   try{
@@ -782,15 +806,12 @@ function bindTheme(){
   });
 }
 
+function activateTab(tabName){
+  qa(".tab").forEach(button=>button.classList.toggle("active",button.dataset.tab===tabName));
+  qa(".panel").forEach(panel=>panel.classList.toggle("active",panel.id===`tab-${tabName}`));
+}
 function bindTabs(){
-  qa(".tab").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      qa(".tab").forEach(b=>b.classList.remove("active"));
-      qa(".panel").forEach(p=>p.classList.remove("active"));
-      btn.classList.add("active");
-      q(`#tab-${btn.dataset.tab}`).classList.add("active");
-    });
-  });
+  qa(".tab").forEach(btn=>btn.addEventListener("click",()=>activateTab(btn.dataset.tab)));
 }
 function renderAll(){
   if(!state) return;
@@ -802,6 +823,7 @@ function renderAll(){
   renderTurnos();
   renderVacaciones();
   renderAdminExtras();
+  renderSavedTables();
   renderLastDraftInfo();
 }
 function renderStaffDatalist(){
@@ -874,6 +896,83 @@ function ensurePersonForAbsence(name){
   return state.personal.findIndex(p=>norm(p.nombre)===norm(op.nombre));
 }
 
+
+function savedTableDateText(item){
+  const date=item?.planilla?.fecha || "Sin fecha";
+  const day=item?.planilla?.dia || "";
+  return day ? `${day} · ${date}` : date;
+}
+function saveCurrentTableCopy(origin="Guardar tabla"){
+  const errors=validateAllData();
+  if(!hasMeaningfulPlanilla(state.planilla)) errors.unshift("La tabla está vacía. Cargá personal o completá datos antes de guardarla.");
+  if(showValidationErrors(errors,"No se pudo guardar la tabla")) return false;
+  const now=new Date().toISOString();
+  const entry={
+    id:`tabla-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    saved_at:now,
+    planilla:clone(state.planilla)
+  };
+  state.saved_tables ||= [];
+  state.saved_tables.unshift(entry);
+  state.saved_tables=state.saved_tables.slice(0,MAX_SAVED_TABLES);
+  state.saved_tables_updated_at=now;
+  state.last_planilla_draft={saved_at:now,planilla:clone(state.planilla)};
+  lastPlanillaSnapshot=JSON.stringify(state.planilla);
+  save({action:`Guardar tabla ficticia ${state.planilla.fecha || ""}`,skipPlanillaDraft:true});
+  renderSavedTables();
+  renderLastDraftInfo();
+  return true;
+}
+function openSavedTable(id){
+  const entry=(state.saved_tables||[]).find(item=>item.id===id);
+  if(!entry) return showValidationErrors(["La tabla seleccionada ya no existe."],"No se pudo abrir");
+  const errors=validatePlanillaData(entry.planilla);
+  if(showValidationErrors(errors,"La tabla guardada necesita correcciones")) return;
+  const label=savedTableDateText(entry);
+  if(hasMeaningfulPlanilla(state.planilla) && !confirm(`¿Abrir la tabla ${label}? La tabla actual será reemplazada, pero seguirá disponible en Deshacer si fue modificada.`)) return;
+  state.planilla=clone(entry.planilla);
+  state.last_planilla_draft={saved_at:new Date().toISOString(),planilla:clone(entry.planilla)};
+  lastPlanillaSnapshot=JSON.stringify(state.planilla);
+  save({action:`Abrir tabla guardada ${entry.planilla.fecha || ""}`,skipPlanillaDraft:true});
+  activateTab("planilla");
+  renderAll();
+}
+function deleteSavedTable(id){
+  const entry=(state.saved_tables||[]).find(item=>item.id===id);
+  if(!entry) return;
+  const when=new Date(entry.saved_at).toLocaleString("es-AR");
+  if(!confirm(`¿Borrar la tabla ${savedTableDateText(entry)} guardada el ${when}?`)) return;
+  state.saved_tables=state.saved_tables.filter(item=>item.id!==id);
+  state.saved_tables_updated_at=new Date().toISOString();
+  save({action:`Borrar tabla guardada ${entry.planilla?.fecha || ""}`,skipPlanillaDraft:true});
+  renderSavedTables();
+}
+function bindSavedTables(){
+  q("#btnSaveCurrentTable")?.addEventListener("click",()=>saveCurrentTableCopy("Pestaña Tablas guardadas"));
+}
+function renderSavedTables(){
+  const table=q("#savedTablesTable");
+  const summary=q("#savedTablesSummary");
+  if(!table || !summary || !state) return;
+  const list=(state.saved_tables||[]).slice(0,MAX_SAVED_TABLES);
+  summary.innerHTML=`<strong>${list.length} de ${MAX_SAVED_TABLES}</strong><span>espacios utilizados</span>`;
+  table.innerHTML=`<tr><th>Tabla</th><th>Guardada</th><th>Turno</th><th>Filas</th><th>Acciones</th></tr>`;
+  if(!list.length){
+    table.innerHTML+=`<tr><td colspan="5" class="empty-cell">Todavía no hay tablas guardadas.</td></tr>`;
+    return;
+  }
+  list.forEach((entry,index)=>{
+    const planilla=entry.planilla||{};
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><strong>${esc(savedTableDateText(entry))}</strong><small class="saved-table-copy">Copia ${list.length-index}</small></td><td>${esc(new Date(entry.saved_at).toLocaleString("es-AR"))}</td><td>${esc(planilla.turno||"—")}</td><td>${(planilla.rows||[]).length}</td><td class="saved-table-actions"><button class="primary" data-st-action="open" data-st-id="${entry.id}">Abrir</button><button class="danger" data-st-action="delete" data-st-id="${entry.id}">Borrar</button></td>`;
+    table.append(tr);
+  });
+  table.querySelectorAll("button[data-st-action]").forEach(button=>button.addEventListener("click",()=>{
+    if(button.dataset.stAction==="open") openSavedTable(button.dataset.stId);
+    if(button.dataset.stAction==="delete") deleteSavedTable(button.dataset.stId);
+  }));
+}
+
 function bindPlanilla(){
   q("#btnHideControls").onclick = ()=> document.body.classList.add("focus-table");
   q("#btnShowControls").onclick = ()=> document.body.classList.remove("focus-table");
@@ -882,11 +981,9 @@ function bindPlanilla(){
   window.addEventListener("beforeprint", ()=>{ if(!hasDebens()) document.body.classList.add("hide-empty-deben-print"); });
   window.addEventListener("afterprint", ()=> document.body.classList.remove("hide-empty-deben-print"));
   q("#btnAddRow").onclick = ()=> { state.planilla.rows.push(blankRow()); save({action:"Agregar fila"}); renderPlanilla(); };
-  q("#btnSaveAll").onclick = ()=> { const errors=validateAllData(); if(showValidationErrors(errors)) return; save({action:"Guardado manual"}); alert("Datos validados y guardados. La tabla volverá limpia al refrescar; esta versión queda disponible en Recuperar última tabla."); };
+  q("#btnSaveAll").onclick = ()=> saveCurrentTableCopy("Botón Guardar");
   q("#btnLoadDay").onclick = loadDay;
   q("#btnRecoverLastTable").onclick = recoverLastPlanilla;
-  q("#btnValidateData").onclick = ()=>{ const errors=validateAllData(); if(!showValidationErrors(errors)) alert("Validación completa: no se encontraron errores."); };
-  q("#btnSort").onclick = ()=> { sortRows(); save({action:"Ordenar por servicio"}); renderPlanilla(); renderDashboard(); renderDailyView(); };
   q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[]; save({action:"Limpiar filas"}); renderAll(); } };
   q("#btnPrint").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de imprimir")) return; window.print(); };
   q("#btnExportJpg").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de exportar")) return; exportPlanillaJpg(); };
@@ -2129,7 +2226,7 @@ function bindDatos(){
         if(Array.isArray(data)){
           state.personal = data.map(normalizePersonRecord);
         }else if(data.personal && data.turnos){
-          const preserved = {history:state.history||[], backups:state.backups||[], personal_backups:state.personal_backups||[], personal_backups_updated_at:state.personal_backups_updated_at||"", last_planilla_draft:state.last_planilla_draft||null, undoStack:state.undoStack||[], backup_settings:state.backup_settings};
+          const preserved = {history:state.history||[], backups:state.backups||[], personal_backups:state.personal_backups||[], personal_backups_updated_at:state.personal_backups_updated_at||"", saved_tables:state.saved_tables||[], saved_tables_updated_at:state.saved_tables_updated_at||"", last_planilla_draft:state.last_planilla_draft||null, undoStack:state.undoStack||[], backup_settings:state.backup_settings};
           state = {...data, ...preserved};
           state.personal = (state.personal||[]).map(normalizePersonRecord);
           state.turnos = normalizeTurnos(state.turnos || {});
