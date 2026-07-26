@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/","/D"]);
 const HALF_RIGHT = new Set(["/X","./X","D/"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN19";
+const APP_VERSION = "WebN20";
 const WEATHER_LOCATION = Object.freeze({
   name:"Junín",
   province:"Buenos Aires",
@@ -1143,6 +1143,8 @@ function renderPlanilla(){
         row.auto_assigned=true;
       }
       useAutomaticRow();
+      // H, D y la eliminación de estas marcas se aplican manualmente.
+      // Después de cada cambio se redistribuyen las X automáticas respetando la marca.
       rebalanceAutomaticCoverage();
       longPressFired=true;
       save({action:row.cells[c]==="D"?"Marcar descanso D":row.cells[c]==="H"?"Marcar H":"Quitar marca de descanso"});
@@ -1589,7 +1591,6 @@ function hasCriticalDeficit(coverage){
 }
 function rebalanceAutomaticCoverage(){
   const rows=meaningfulPlanillaRows(state.planilla.rows);
-  applyRequiredIncomingRest(rows,parseDMY(state.planilla.fecha));
   let result=runCoverageOptimizer(rows,{allowExtreme:false});
   const preferredCells=new Map(rows.map(row=>[row,clone(row.cells)]));
   if(hasCriticalDeficit(result.coverage)){
@@ -1603,55 +1604,6 @@ function rebalanceAutomaticCoverage(){
   state.planilla.recargo_suggestions=buildRecargoSuggestions(coverage);
   return {coverage,staffCount:result.managed.length};
 }
-function assignmentWorksOnDate(a,d){
-  const days=dayTokens(a.dias||"");
-  const day=dayKeyFromDate(d);
-  return !day||days.size===0||days.has("todos")||days.has(day);
-}
-function matchingAssignmentsForDate(p,d){
-  const weekly=scheduleForPersonDate(p,d);
-  if(weekly) return [weekly];
-  if(p.horario_semanal) return [];
-  const asg=Array.isArray(p.asignaciones)&&p.asignaciones.length?p.asignaciones:[{
-    dias:p.dias,hora_inicio:p.hora_inicio,hora_fin:p.hora_fin,servicio:p.servicio,modalidad:p.modalidad,
-    rotativo_a_inicio:p.rotativo_a_inicio,rotativo_a_fin:p.rotativo_a_fin,rotativo_b_inicio:p.rotativo_b_inicio,rotativo_b_fin:p.rotativo_b_fin,fecha_base_rotacion:p.fecha_base_rotacion
-  }];
-  return asg.filter(a=>assignmentWorksOnDate(a,d));
-}
-function previousPlanillaForDate(d){
-  const target=formatDMY(d),candidates=[];
-  if(state.last_planilla_draft?.planilla?.fecha===target) candidates.push({planilla:state.last_planilla_draft.planilla,at:state.last_planilla_draft.saved_at||""});
-  (state.saved_tables||[]).forEach(item=>{ if(item?.planilla?.fecha===target) candidates.push({planilla:item.planilla,at:item.saved_at||""}); });
-  candidates.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  return candidates[0]?.planilla||null;
-}
-function previousNightEntrantNames(d){
-  const names=new Set(),previous=addDays(d,-1),prior=previousPlanillaForDate(previous);
-  (prior?.rows||[]).forEach(row=>{
-    if(!["recargo","rondin"].includes(serviceKey(row.servicio))&&!row.recargo) return;
-    const slots=slotsFromCells(row.cells);
-    if(slots.slice(18,24).some(Boolean)&&row.nombre&&!/^rondin\d*$/i.test(row.nombre)) names.add(norm(row.nombre));
-  });
-  (state.personal||[]).forEach(person=>{
-    matchingAssignmentsForDate(person,previous).forEach(a=>{
-      const service=serviceKey(serviceForAssignment(a,person));
-      if(!["recargo","rondin"].includes(service)) return;
-      const range=assignmentRange(a,person,previous);
-      const axis=axisRange(range.start,range.end);
-      if(axis&&axis[0]<31&&axis[1]>25) names.add(norm(person.nombre));
-    });
-  });
-  return names;
-}
-function applyRequiredIncomingRest(rows,d){
-  const incoming=previousNightEntrantNames(d);
-  rows.forEach(row=>{
-    const is48=norm(row.source).includes("rotativo 48")||norm(row.rotation_type).includes("rotativo 48");
-    if(!is48&&!incoming.has(norm(row.nombre))) return;
-    row.cells[0]="D"; row.cells[1]="D";
-    row.required_rest="07 a 11";
-  });
-}
 function assignAutomatic24Coverage(){
   const rows=state.planilla.rows||[];
   rows.forEach(row=>{
@@ -1659,7 +1611,6 @@ function assignAutomatic24Coverage(){
       row.auto_managed=true; row.auto_assigned=true;
     }
   });
-  applyRequiredIncomingRest(rows,parseDMY(state.planilla.fecha));
   return rebalanceAutomaticCoverage();
 }
 function buildRecargoSuggestions(coverage){
@@ -1785,7 +1736,6 @@ function rowsForDate(d){
     });
     addStandardRowsTo(rows,d,state.planilla.turno);
     rows.forEach(row=>{ if(["24hs","canes"].includes(serviceKey(row.servicio))){ row.auto_managed=true; row.auto_assigned=true; } });
-    applyRequiredIncomingRest(rows,d);
     runCoverageOptimizer(rows,{allowExtreme:false});
     enforceMaximumCoverage(rows);
     rows.sort((a,b)=>{

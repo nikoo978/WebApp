@@ -1,4 +1,4 @@
-const CACHE = 'shift-manager-webn19-v1';
+const CACHE = 'shift-manager-webn20-v1';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './seed-data.js', './manifest.json'];
 
 self.addEventListener('install', event => {
