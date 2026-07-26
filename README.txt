@@ -1,24 +1,24 @@
-WEBN14 - ACTUALIZACIÓN PARA GIT Y VERCEL
+WEBN13 - INTERFAZ MODERNA Y RESPONSIVE
 
-MEJORA VISUAL DE LA PESTAÑA PLANILLA
-- La tabla usa celdas totalmente rectas, sin esquinas redondeadas.
-- Se eliminaron los degradados de PUESTOS, Deben haber, Hay y Hora.
-- Los encabezados ahora usan colores planos y definidos.
-- La fila Hay mantiene la escala gradual rojo/amarillo/verde, pero cada celda
-  se pinta con un único color plano, sin efecto degradado.
-- Se reforzaron líneas, contraste y jerarquía visual.
-- Las filas alternadas y el resaltado al pasar el cursor facilitan la lectura.
-- La columna Servicio permanece completamente centrada.
-- El diseño funciona en modo claro, oscuro, impresión y pantallas pequeñas.
+CAMBIOS VISUALES
+- Interfaz modernizada con nueva paleta, tarjetas, bordes, sombras y espaciado.
+- Modo claro y oscuro mediante el botón pequeño de luna/sol en la barra superior.
+- El tema elegido queda guardado en el dispositivo.
+- Navegación reorganizada y completamente responsive.
+- La pestaña Datos quedó separada del resto y se identifica con un engranaje.
+- Barra de acciones de la planilla agrupada por fecha/turno, acciones principales, edición y exportación.
+- En celulares y tablets los botones se reacomodan automáticamente.
+- Texto de las celdas de la columna Servicio centrado, incluido el selector.
+- Se mantiene toda la lógica y los datos de WebN12.
 
-ACTUALIZACIÓN
-1. Copiar el contenido del ZIP sobre la carpeta del repositorio.
+ACTUALIZACIÓN CON GIT
+1. Copiar el contenido del ZIP sobre el repositorio actual.
 2. No borrar .git ni .env.local.
 3. Ejecutar:
 
    git status
    git add .
-   git commit -m "Actualizar a WebN14 con planilla plana y sin degradados"
+   git commit -m "Actualizar a WebN13 con interfaz moderna y modo oscuro"
    git push
 
-No se agregaron dependencias nuevas.
+No se agregaron dependencias. No hace falta ejecutar npm install.

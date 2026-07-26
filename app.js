@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN14";
+const APP_VERSION = "WebN13";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -1051,9 +1051,8 @@ function coverageCellStyle(value,target){
   if(target === null || target === undefined || target === 0) return "";
   const ratio = coverageRatio(value,target);
   const hue = Math.round(ratio * 120);
-  const saturation = 68;
-  const lightness = 84 - Math.round(ratio * 10);
-  return `background-color:hsl(${hue} ${saturation}% ${lightness}%); color:#111827;`;
+  const light = 86 - Math.round(ratio * 12);
+  return `background:hsl(${hue} 80% ${light}%); color:#111;`;
 }
 function coverageClass(value,target){
   const ratio = coverageRatio(value,target || 7);

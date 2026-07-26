@@ -1,4 +1,4 @@
-const CACHE = 'shift-manager-webn14-v1';
+const CACHE = 'shift-manager-webn13-v1';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './seed-data.js', './manifest.json'];
 
 self.addEventListener('install', event => {
