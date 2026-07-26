@@ -32,6 +32,7 @@
       <button class="tab active" data-tab="planilla"><span class="tab-icon" aria-hidden="true">▦</span><span>Tabla</span></button>
       <button class="tab" data-tab="tablas"><span class="tab-icon" aria-hidden="true">▤</span><span>Tablas guardadas</span></button>
       <button class="tab" data-tab="tablero"><span class="tab-icon" aria-hidden="true">▥</span><span>Tablero</span></button>
+      <button class="tab" data-tab="clima"><span class="tab-icon" aria-hidden="true">☁</span><span>Clima</span></button>
       <button class="tab" data-tab="dia"><span class="tab-icon" aria-hidden="true">◷</span><span>Día</span></button>
       <button class="tab" data-tab="personal"><span class="tab-icon" aria-hidden="true">♟</span><span>Personal</span></button>
       <button class="tab" data-tab="turnos"><span class="tab-icon" aria-hidden="true">⏱</span><span>Turnos 24 / Canes</span></button>
@@ -103,6 +104,52 @@
 
     <section id="tab-tablero" class="panel">
       <div id="dashboardContent"></div>
+    </section>
+
+    <section id="tab-clima" class="panel weather-panel">
+      <div class="weather-hero card">
+        <div class="weather-heading">
+          <div>
+            <span class="weather-eyebrow">SEGURIDAD OPERATIVA</span>
+            <h2>Clima · Junín, Buenos Aires</h2>
+            <p>Pronóstico visual de 7 días con visibilidad, neblina, lluvia, tormentas eléctricas, amanecer y anochecer.</p>
+          </div>
+          <div class="weather-actions">
+            <button id="btnRefreshWeather" class="primary" type="button"><span aria-hidden="true">↻</span> Actualizar</button>
+            <a class="weather-link" href="https://www.smn.gob.ar/alertas" target="_blank" rel="noopener">⚠ Alertas SMN</a>
+            <a class="weather-link" href="https://www.smn.gob.ar/radar" target="_blank" rel="noopener">◉ Radar SMN</a>
+          </div>
+        </div>
+        <div id="weatherStatus" class="weather-status" role="status" aria-live="polite">El pronóstico se carga al abrir esta pestaña.</div>
+      </div>
+
+      <div id="weatherCurrent" class="weather-current-grid"></div>
+      <div id="weatherOperationalAlert"></div>
+
+      <div class="card weather-days-card">
+        <div class="weather-section-head">
+          <div>
+            <h2>Próximos 7 días</h2>
+            <p>Seleccioná un día para ver sus horarios y riesgos operativos.</p>
+          </div>
+          <div class="weather-legend compact">
+            <span><i class="legend-dot safe"></i>Normal</span>
+            <span><i class="legend-dot caution"></i>Atención</span>
+            <span><i class="legend-dot high"></i>Riesgo</span>
+            <span><i class="legend-dot critical"></i>Crítico</span>
+          </div>
+        </div>
+        <div id="weatherDays" class="weather-days"></div>
+      </div>
+
+      <div id="weatherDayDetail"></div>
+
+      <div class="weather-source-note card">
+        <strong>Uso recomendado:</strong>
+        <span>El panel utiliza Open-Meteo “Best Match” para el detalle horario. Para decisiones críticas, alertas y tormentas inminentes, siempre prevalecen el Servicio Meteorológico Nacional y el radar.</span>
+        <a href="https://open-meteo.com/" target="_blank" rel="noopener">Datos: Open-Meteo</a>
+        <a href="https://www.smn.gob.ar/pronostico" target="_blank" rel="noopener">Pronóstico oficial SMN</a>
+      </div>
     </section>
 
     <section id="tab-dia" class="panel">

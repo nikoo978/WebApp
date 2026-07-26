@@ -1,18 +1,21 @@
-WEBN16 - ACTUALIZACIÓN PARA GIT Y VERCEL
+WEBN17 - ACTUALIZACIÓN PARA GIT Y VERCEL
 
-FILA AUTOMÁTICA EN LA PESTAÑA TABLA
-- Siempre queda una fila vacía al final de la tabla.
-- Al completar su nombre, servicio o cualquier celda horaria, se crea
-  automáticamente otra fila vacía por debajo.
-- Ya no es necesario presionar +Fila para cada nueva persona.
-- El botón +Fila se conserva y ahora lleva el cursor directamente a la fila
-  vacía disponible.
-- Al limpiar, cargar, recuperar o abrir una tabla guardada se mantiene la fila
-  automática.
-- La fila automática no aparece en JPG ni en impresión.
-- Tampoco se cuenta como una persona o fila real en Tablas guardadas y Vista diaria.
-- La validación ignora la fila vacía, pero sigue detectando una fila incompleta
-  cuando contiene horarios o servicio y todavía no tiene nombre.
+NUEVA PESTAÑA CLIMA
+- Pronóstico visual de 7 días para Junín, provincia de Buenos Aires.
+- Estado actual, temperatura, sensación, visibilidad, viento y ráfagas.
+- Amanecer y anochecer.
+- Horarios estimados de neblina/niebla y visibilidad reducida.
+- Horarios estimados de lluvia.
+- Riesgo de tormenta eléctrica según los códigos horarios del modelo.
+- Semáforo operativo: normal, atención, riesgo alto y crítico.
+- Línea temporal visual de 24 horas para luz, visibilidad, lluvia y tormenta.
+- Tarjetas seleccionables de los próximos siete días.
+- Accesos directos a alertas, radar y pronóstico oficial del SMN.
+- Actualización manual y automática cada 30 minutos mientras la pestaña está abierta.
+- Caché local: si se corta Internet, muestra el último pronóstico disponible.
+- No usa Upstash para el clima y no consume almacenamiento de la base de datos.
+- Fuente de detalle horario: Open-Meteo Best Match, sin clave API.
+- Para decisiones críticas, las alertas y el radar del SMN tienen prioridad.
 
 ACTUALIZACIÓN
 1. Copiar el contenido del ZIP sobre la carpeta del repositorio.
@@ -21,7 +24,7 @@ ACTUALIZACIÓN
 
    git status
    git add .
-   git commit -m "Actualizar a WebN16 con fila automática en Tabla"
+   git commit -m "Actualizar a WebN17 con panel de clima operativo"
    git push
 
-No se agregaron dependencias nuevas.
+No se agregaron dependencias nuevas ni variables de entorno.

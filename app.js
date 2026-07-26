@@ -21,7 +21,23 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN16";
+const APP_VERSION = "WebN17";
+const WEATHER_LOCATION = Object.freeze({
+  name:"Junín",
+  province:"Buenos Aires",
+  latitude:-34.585,
+  longitude:-60.958,
+  timezone:"America/Argentina/Buenos_Aires"
+});
+const WEATHER_CACHE_KEY = "shift-manager-weather-junin-v1";
+const WEATHER_CACHE_MAX_AGE = 30 * 60 * 1000;
+let weatherData = null;
+let weatherFetchedAt = 0;
+let weatherSelectedDate = "";
+let weatherLoading = false;
+let weatherMessage = "";
+let weatherRefreshTimer = null;
+
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -547,6 +563,7 @@ async function init(){
   bindDatos();
   bindSavedTables();
   bindDashboard();
+  bindWeather();
   bindDailyView();
   bindPin();
   q("#btnCloseValidationModal")?.addEventListener("click",closeValidationModal);
@@ -810,6 +827,7 @@ function bindTheme(){
 function activateTab(tabName){
   qa(".tab").forEach(button=>button.classList.toggle("active",button.dataset.tab===tabName));
   qa(".panel").forEach(panel=>panel.classList.toggle("active",panel.id===`tab-${tabName}`));
+  if(tabName === "clima") loadWeather(false);
 }
 function bindTabs(){
   qa(".tab").forEach(btn=>btn.addEventListener("click",()=>activateTab(btn.dataset.tab)));
@@ -819,6 +837,7 @@ function renderAll(){
   renderStaffDatalist();
   renderPlanilla();
   renderDashboard();
+  renderWeather();
   renderDailyView();
   renderPersonal();
   renderTurnos();
@@ -1746,6 +1765,427 @@ function renderFatigueInto(container, rows){
   const items = (rows||[]).map(r=>({row:r, cols:[...fatigueCols(r)]})).filter(x=>x.cols.length);
   container.innerHTML = items.length ? `<ul class="alert-list">${items.map(x=>`<li><strong>${esc(x.row.nombre)}</strong>: ${x.cols.map(i=>HOURS[i]).join(", ")}</li>`).join("")}</ul>` : `<p class="ok-text">Sin fatiga detectada.</p>`;
 }
+
+/* WebN17 · Clima operativo de Junín */
+function bindWeather(){
+  q("#btnRefreshWeather")?.addEventListener("click",()=>loadWeather(true));
+  q("#weatherDays")?.addEventListener("click",event=>{
+    const button=event.target.closest("[data-weather-date]");
+    if(!button) return;
+    weatherSelectedDate=button.dataset.weatherDate;
+    renderWeather();
+  });
+  window.addEventListener("online",()=>{
+    if(q("#tab-clima")?.classList.contains("active")) loadWeather(true);
+  });
+  clearInterval(weatherRefreshTimer);
+  weatherRefreshTimer=setInterval(()=>{
+    if(q("#tab-clima")?.classList.contains("active")) loadWeather(true);
+  },30*60*1000);
+}
+function weatherApiUrl(){
+  const params=new URLSearchParams({
+    latitude:String(WEATHER_LOCATION.latitude),
+    longitude:String(WEATHER_LOCATION.longitude),
+    timezone:WEATHER_LOCATION.timezone,
+    forecast_days:"7",
+    models:"best_match",
+    current:[
+      "temperature_2m","relative_humidity_2m","apparent_temperature","is_day",
+      "precipitation","rain","weather_code","cloud_cover",
+      "wind_speed_10m","wind_direction_10m","wind_gusts_10m"
+    ].join(","),
+    hourly:[
+      "temperature_2m","relative_humidity_2m","dew_point_2m",
+      "precipitation_probability","precipitation","rain","showers",
+      "weather_code","visibility","wind_speed_10m","wind_gusts_10m"
+    ].join(","),
+    daily:[
+      "weather_code","temperature_2m_max","temperature_2m_min",
+      "precipitation_sum","precipitation_hours","precipitation_probability_max",
+      "sunrise","sunset","wind_speed_10m_max","wind_gusts_10m_max"
+    ].join(",")
+  });
+  return `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+}
+function readWeatherCache(){
+  try{
+    const cached=JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)||"null");
+    if(cached?.data && cached?.at) return cached;
+  }catch(_){}
+  return null;
+}
+function writeWeatherCache(data,at){
+  try{ localStorage.setItem(WEATHER_CACHE_KEY,JSON.stringify({data,at})); }catch(_){}
+}
+async function loadWeather(force=false){
+  if(weatherLoading) return;
+  const cached=readWeatherCache();
+  const age=cached ? Date.now()-Number(cached.at) : Infinity;
+  if(!force && cached && age<WEATHER_CACHE_MAX_AGE){
+    weatherData=cached.data;
+    weatherFetchedAt=Number(cached.at);
+    weatherMessage="";
+    weatherSelectedDate ||= weatherData.daily?.time?.[0] || "";
+    renderWeather();
+    return;
+  }
+  weatherLoading=true;
+  weatherMessage="Actualizando pronóstico…";
+  renderWeather();
+  try{
+    const response=await fetch(weatherApiUrl(),{cache:"no-store"});
+    if(!response.ok) throw new Error(`Respuesta meteorológica ${response.status}`);
+    const data=await response.json();
+    if(!data?.hourly?.time?.length || !data?.daily?.time?.length) throw new Error("Pronóstico incompleto");
+    weatherData=data;
+    weatherFetchedAt=Date.now();
+    weatherSelectedDate = data.daily.time.includes(weatherSelectedDate) ? weatherSelectedDate : data.daily.time[0];
+    weatherMessage="";
+    writeWeatherCache(data,weatherFetchedAt);
+  }catch(error){
+    if(cached){
+      weatherData=cached.data;
+      weatherFetchedAt=Number(cached.at);
+      weatherSelectedDate ||= weatherData.daily?.time?.[0] || "";
+      weatherMessage="Sin conexión: se muestra el último pronóstico guardado.";
+    }else{
+      weatherMessage="No se pudo cargar el clima. Revisá la conexión y volvé a intentar.";
+    }
+  }finally{
+    weatherLoading=false;
+    renderWeather();
+  }
+}
+function weatherCodeMeta(code,isDay=true){
+  const c=Number(code);
+  if(c===0) return {icon:isDay?"☀️":"🌙",text:"Despejado"};
+  if(c===1) return {icon:isDay?"🌤️":"🌙",text:"Mayormente despejado"};
+  if(c===2) return {icon:"⛅",text:"Parcialmente nublado"};
+  if(c===3) return {icon:"☁️",text:"Nublado"};
+  if(c===45 || c===48) return {icon:"🌫️",text:"Niebla"};
+  if([51,53,55,56,57].includes(c)) return {icon:"🌦️",text:"Llovizna"};
+  if([61,63,65,66,67].includes(c)) return {icon:"🌧️",text:"Lluvia"};
+  if([71,73,75,77].includes(c)) return {icon:"🌨️",text:"Nieve"};
+  if([80,81,82].includes(c)) return {icon:"🌦️",text:"Chaparrones"};
+  if([85,86].includes(c)) return {icon:"🌨️",text:"Chaparrones de nieve"};
+  if(c===95) return {icon:"⛈️",text:"Tormenta"};
+  if(c===96 || c===99) return {icon:"⛈️",text:"Tormenta con granizo"};
+  return {icon:"🌡️",text:"Condición variable"};
+}
+function weatherDayIndex(date){
+  return Math.max(0,(weatherData?.daily?.time||[]).indexOf(date));
+}
+function weatherHoursFor(date){
+  if(!weatherData?.hourly?.time) return [];
+  const h=weatherData.hourly;
+  const result=[];
+  h.time.forEach((time,i)=>{
+    if(!time.startsWith(date)) return;
+    result.push({
+      time,
+      hour:Number(time.slice(11,13)),
+      temperature:Number(h.temperature_2m?.[i]),
+      humidity:Number(h.relative_humidity_2m?.[i]),
+      dewPoint:Number(h.dew_point_2m?.[i]),
+      precipitationProbability:Number(h.precipitation_probability?.[i]||0),
+      precipitation:Number(h.precipitation?.[i]||0),
+      rain:Number(h.rain?.[i]||0),
+      showers:Number(h.showers?.[i]||0),
+      code:Number(h.weather_code?.[i]),
+      visibility:Number(h.visibility?.[i]),
+      wind:Number(h.wind_speed_10m?.[i]||0),
+      gust:Number(h.wind_gusts_10m?.[i]||0)
+    });
+  });
+  return result;
+}
+function weatherDayInfo(date){
+  const i=weatherDayIndex(date);
+  const d=weatherData?.daily||{};
+  return {
+    date,
+    code:Number(d.weather_code?.[i]),
+    max:Number(d.temperature_2m_max?.[i]),
+    min:Number(d.temperature_2m_min?.[i]),
+    precipitation:Number(d.precipitation_sum?.[i]||0),
+    precipitationHours:Number(d.precipitation_hours?.[i]||0),
+    rainProbability:Number(d.precipitation_probability_max?.[i]||0),
+    sunrise:d.sunrise?.[i]||"",
+    sunset:d.sunset?.[i]||"",
+    wind:Number(d.wind_speed_10m_max?.[i]||0),
+    gust:Number(d.wind_gusts_10m_max?.[i]||0),
+    hours:weatherHoursFor(date)
+  };
+}
+function weatherTime(text){ return text ? text.slice(11,16) : "—"; }
+function weatherDateLabel(date,long=false){
+  const parsed=new Date(`${date}T12:00:00`);
+  return new Intl.DateTimeFormat("es-AR",long
+    ? {weekday:"long",day:"numeric",month:"long"}
+    : {weekday:"short",day:"numeric"}
+  ).format(parsed);
+}
+function weatherKm(value){
+  if(!Number.isFinite(value)) return "—";
+  const km=value/1000;
+  return km<1 ? `${Math.round(value)} m` : `${km<10?km.toFixed(1):Math.round(km)} km`;
+}
+function isFogHour(hour){
+  return [45,48].includes(hour.code) || (Number.isFinite(hour.visibility) && hour.visibility<5000);
+}
+function fogLevel(hour){
+  const v=hour.visibility;
+  if(Number.isFinite(v) && v<1000) return "critical";
+  if(Number.isFinite(v) && v<3000) return "high";
+  if(isFogHour(hour)) return "caution";
+  return "safe";
+}
+function isRainHour(hour){
+  return hour.precipitation>0.1 || hour.rain>0.1 || hour.showers>0.1 ||
+    hour.precipitationProbability>=40 ||
+    [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(hour.code);
+}
+function rainLevel(hour){
+  if([95,96,99].includes(hour.code) || hour.precipitation>=8) return "critical";
+  if(hour.precipitation>=3 || hour.precipitationProbability>=70) return "high";
+  if(isRainHour(hour)) return "caution";
+  return "safe";
+}
+function isStormHour(hour){ return [95,96,99].includes(hour.code); }
+function isNightHour(hour,day){
+  const sunrise=Number(weatherTime(day.sunrise).slice(0,2))*60+Number(weatherTime(day.sunrise).slice(3,5));
+  const sunset=Number(weatherTime(day.sunset).slice(0,2))*60+Number(weatherTime(day.sunset).slice(3,5));
+  const minute=hour.hour*60;
+  return minute<sunrise || minute>=sunset;
+}
+function weatherWindows(hours,predicate){
+  const ranges=[];
+  let start=null;
+  hours.forEach((hour,index)=>{
+    const active=predicate(hour);
+    if(active && start===null) start=index;
+    const atEnd=index===hours.length-1;
+    if(start!==null && (!active || atEnd)){
+      const endExclusive=active && atEnd ? index+1 : index;
+      const startHour=hours[start]?.hour ?? start;
+      const endHour=endExclusive>=24 ? 24 : (hours[endExclusive]?.hour ?? endExclusive);
+      ranges.push(`${String(startHour).padStart(2,"0")}:00–${String(endHour).padStart(2,"0")}:00`);
+      start=null;
+    }
+  });
+  return ranges;
+}
+function weatherRisk(day){
+  const hours=day.hours||[];
+  const hasStorm=hours.some(isStormHour);
+  const minVisibility=Math.min(...hours.map(h=>Number.isFinite(h.visibility)?h.visibility:Infinity));
+  const hasFog=hours.some(isFogHour);
+  const hasRain=hours.some(isRainHour);
+  if(hasStorm || minVisibility<500) return {level:"critical",label:"Crítico",icon:"⛔",reason:hasStorm?"Tormenta eléctrica prevista":"Visibilidad extremadamente reducida"};
+  if(minVisibility<1500 || day.rainProbability>=80 || day.gust>=70) return {level:"high",label:"Riesgo alto",icon:"⚠️",reason:minVisibility<1500?"Niebla densa prevista":day.gust>=70?"Ráfagas fuertes previstas":"Alta probabilidad de lluvia"};
+  if(hasFog || hasRain || day.rainProbability>=40 || day.gust>=45) return {level:"caution",label:"Atención",icon:"▲",reason:hasFog?"Neblina o visibilidad reducida":hasRain?"Períodos de lluvia":"Condiciones a vigilar"};
+  return {level:"safe",label:"Normal",icon:"●",reason:"Sin fenómenos relevantes previstos"};
+}
+function weatherWindDirection(deg){
+  if(!Number.isFinite(Number(deg))) return "—";
+  const dirs=["N","NE","E","SE","S","SO","O","NO"];
+  return dirs[Math.round(Number(deg)/45)%8];
+}
+function weatherNearestHour(){
+  if(!weatherData?.hourly?.time?.length) return null;
+  const target=Date.now();
+  let best=null,bestDiff=Infinity;
+  weatherData.hourly.time.forEach((time,i)=>{
+    const diff=Math.abs(new Date(time).getTime()-target);
+    if(diff<bestDiff){
+      bestDiff=diff;
+      best={
+        visibility:Number(weatherData.hourly.visibility?.[i]),
+        precipitationProbability:Number(weatherData.hourly.precipitation_probability?.[i]||0),
+        code:Number(weatherData.hourly.weather_code?.[i]),
+        time
+      };
+    }
+  });
+  return best;
+}
+function renderWeather(){
+  const status=q("#weatherStatus");
+  const currentRoot=q("#weatherCurrent");
+  const alertRoot=q("#weatherOperationalAlert");
+  const daysRoot=q("#weatherDays");
+  const detailRoot=q("#weatherDayDetail");
+  if(!status || !currentRoot || !alertRoot || !daysRoot || !detailRoot) return;
+
+  if(weatherLoading && !weatherData){
+    status.innerHTML=`<span class="weather-spinner" aria-hidden="true"></span> Consultando el pronóstico más reciente…`;
+    currentRoot.innerHTML=Array.from({length:4},()=>`<div class="weather-skeleton"></div>`).join("");
+    alertRoot.innerHTML="";
+    daysRoot.innerHTML="";
+    detailRoot.innerHTML="";
+    return;
+  }
+  if(!weatherData){
+    status.textContent=weatherMessage || "Abrí esta pestaña para cargar el pronóstico.";
+    currentRoot.innerHTML=`<div class="card weather-unavailable"><span>☁️</span><strong>Pronóstico no disponible</strong><button id="btnWeatherRetry" class="primary" type="button">Reintentar</button></div>`;
+    q("#btnWeatherRetry")?.addEventListener("click",()=>loadWeather(true));
+    alertRoot.innerHTML="";
+    daysRoot.innerHTML="";
+    detailRoot.innerHTML="";
+    return;
+  }
+
+  const fetchedText=new Date(weatherFetchedAt).toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  status.innerHTML=`${weatherMessage?`<strong>⚠ ${esc(weatherMessage)}</strong> · `:""}Actualizado ${esc(fetchedText)} · modelo automático Best Match`;
+  const current=weatherData.current||{};
+  const nearest=weatherNearestHour();
+  const currentMeta=weatherCodeMeta(current.weather_code,current.is_day!==0);
+  const today=weatherDayInfo(weatherData.daily.time[0]);
+  const todayRisk=weatherRisk(today);
+
+  currentRoot.innerHTML=`
+    <div class="weather-now card">
+      <div class="weather-now-icon" aria-hidden="true">${currentMeta.icon}</div>
+      <div class="weather-now-copy">
+        <span>Ahora</span>
+        <strong>${Math.round(Number(current.temperature_2m))}°</strong>
+        <b>${esc(currentMeta.text)}</b>
+        <small>Sensación ${Math.round(Number(current.apparent_temperature))}°</small>
+      </div>
+    </div>
+    <div class="weather-kpi card risk-${fogLevel({visibility:nearest?.visibility,code:nearest?.code})}">
+      <span class="weather-kpi-icon" aria-hidden="true">👁</span>
+      <div><small>Visibilidad</small><strong>${weatherKm(nearest?.visibility)}</strong><span>${nearest && isFogHour(nearest)?"Neblina / niebla":"Visibilidad normal"}</span></div>
+    </div>
+    <div class="weather-kpi card">
+      <span class="weather-kpi-icon" aria-hidden="true">💨</span>
+      <div><small>Viento y ráfagas</small><strong>${Math.round(Number(current.wind_speed_10m||0))} km/h</strong><span>${weatherWindDirection(current.wind_direction_10m)} · ráfagas ${Math.round(Number(current.wind_gusts_10m||0))} km/h</span></div>
+    </div>
+    <div class="weather-kpi card">
+      <span class="weather-kpi-icon" aria-hidden="true">🌅</span>
+      <div><small>Luz diurna</small><strong>${weatherTime(today.sunrise)} → ${weatherTime(today.sunset)}</strong><span>Amanecer / anochecer</span></div>
+    </div>
+  `;
+
+  const todayFog=weatherWindows(today.hours,isFogHour);
+  const todayRain=weatherWindows(today.hours,isRainHour);
+  const todayStorm=weatherWindows(today.hours,isStormHour);
+  alertRoot.innerHTML=`
+    <div class="weather-risk-banner risk-${todayRisk.level}">
+      <div class="weather-risk-symbol" aria-hidden="true">${todayRisk.icon}</div>
+      <div class="weather-risk-copy">
+        <span>RIESGO OPERATIVO ESTIMADO · HOY</span>
+        <strong>${todayRisk.label}: ${esc(todayRisk.reason)}</strong>
+        <div class="weather-risk-facts">
+          <span>🌫 ${todayFog.length?esc(todayFog.join(", ")):"Sin neblina prevista"}</span>
+          <span>🌧 ${todayRain.length?esc(todayRain.join(", ")):"Sin lluvia prevista"}</span>
+          <span>⛈ ${todayStorm.length?esc(todayStorm.join(", ")):"Sin tormenta eléctrica prevista"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  weatherSelectedDate = weatherData.daily.time.includes(weatherSelectedDate) ? weatherSelectedDate : weatherData.daily.time[0];
+  daysRoot.innerHTML=weatherData.daily.time.map(date=>{
+    const day=weatherDayInfo(date);
+    const risk=weatherRisk(day);
+    const meta=weatherCodeMeta(day.code,true);
+    const fog=weatherWindows(day.hours,isFogHour);
+    const rain=weatherWindows(day.hours,isRainHour);
+    const storm=weatherWindows(day.hours,isStormHour);
+    return `<button class="weather-day-card risk-${risk.level} ${date===weatherSelectedDate?"selected":""}" data-weather-date="${date}" type="button">
+      <div class="weather-day-top">
+        <div><strong>${esc(weatherDateLabel(date))}</strong><small>${date===weatherData.daily.time[0]?"HOY":""}</small></div>
+        <span class="weather-day-risk">${risk.icon}</span>
+      </div>
+      <div class="weather-day-main">
+        <span class="weather-day-icon" aria-hidden="true">${meta.icon}</span>
+        <div><b>${Math.round(day.max)}°</b><em>${Math.round(day.min)}°</em></div>
+      </div>
+      <div class="weather-day-events">
+        <span class="${fog.length?"active":""}">🌫 ${fog.length?fog[0]:"—"}</span>
+        <span class="${rain.length?"active":""}">🌧 ${day.rainProbability}%</span>
+        <span class="${storm.length?"danger":""}">⛈ ${storm.length?"Sí":"No"}</span>
+      </div>
+      <div class="weather-sun-mini"><span>☀ ${weatherTime(day.sunrise)}</span><span>☾ ${weatherTime(day.sunset)}</span></div>
+    </button>`;
+  }).join("");
+
+  renderWeatherDayDetail(weatherSelectedDate);
+}
+function renderWeatherDayDetail(date){
+  const root=q("#weatherDayDetail");
+  if(!root || !weatherData || !date) return;
+  const day=weatherDayInfo(date);
+  const risk=weatherRisk(day);
+  const fog=weatherWindows(day.hours,isFogHour);
+  const rain=weatherWindows(day.hours,isRainHour);
+  const storm=weatherWindows(day.hours,isStormHour);
+  const minVisibility=Math.min(...day.hours.map(h=>Number.isFinite(h.visibility)?h.visibility:Infinity));
+  const hourCells=day.hours.map(hour=>{
+    const meta=weatherCodeMeta(hour.code,!isNightHour(hour,day));
+    const classes=[
+      isNightHour(hour,day)?"is-night":"is-day",
+      isFogHour(hour)?"has-fog":"",
+      isRainHour(hour)?"has-rain":"",
+      isStormHour(hour)?"has-storm":""
+    ].filter(Boolean).join(" ");
+    return `<div class="weather-hour ${classes}" title="${String(hour.hour).padStart(2,"0")}:00 · ${weatherKm(hour.visibility)} · lluvia ${hour.precipitationProbability}%">
+      <b>${String(hour.hour).padStart(2,"0")}</b>
+      <span aria-hidden="true">${meta.icon}</span>
+      <small>${Math.round(hour.temperature)}°</small>
+      <em>${hour.precipitationProbability}%</em>
+    </div>`;
+  }).join("");
+  const band=(label,cells,extraClass="")=>`<div class="weather-band-row">
+    <strong>${label}</strong>
+    <div class="weather-band ${extraClass}">${cells}</div>
+  </div>`;
+  const hourLabels=day.hours.map(h=>`<span>${h.hour%3===0?String(h.hour).padStart(2,"0"):""}</span>`).join("");
+  const lightCells=day.hours.map(h=>`<i class="${isNightHour(h,day)?"night":"day"}" title="${isNightHour(h,day)?"Noche":"Luz diurna"}"></i>`).join("");
+  const fogCells=day.hours.map(h=>`<i class="${fogLevel(h)}" title="${String(h.hour).padStart(2,"0")}:00 · visibilidad ${weatherKm(h.visibility)}"></i>`).join("");
+  const rainCells=day.hours.map(h=>`<i class="${rainLevel(h)}" title="${String(h.hour).padStart(2,"0")}:00 · lluvia ${h.precipitationProbability}%"></i>`).join("");
+  const stormCells=day.hours.map(h=>`<i class="${isStormHour(h)?"critical":"safe"}" title="${String(h.hour).padStart(2,"0")}:00 · ${isStormHour(h)?"tormenta prevista":"sin tormenta prevista"}"></i>`).join("");
+
+  root.innerHTML=`
+    <div class="card weather-detail-card">
+      <div class="weather-detail-head">
+        <div>
+          <span class="weather-eyebrow">DETALLE HORARIO</span>
+          <h2>${esc(weatherDateLabel(date,true))}</h2>
+        </div>
+        <span class="weather-detail-risk risk-${risk.level}">${risk.icon} ${esc(risk.label)}</span>
+      </div>
+      <div class="weather-summary-grid">
+        <div><span>🌫</span><small>Neblina / niebla</small><strong>${fog.length?esc(fog.join(", ")):"No prevista"}</strong><em>Mínima visibilidad: ${Number.isFinite(minVisibility)?weatherKm(minVisibility):"—"}</em></div>
+        <div><span>🌧</span><small>Lluvia</small><strong>${rain.length?esc(rain.join(", ")):"No prevista"}</strong><em>${day.rainProbability}% máximo · ${day.precipitation.toFixed(1)} mm</em></div>
+        <div><span>⛈</span><small>Tormenta eléctrica</small><strong>${storm.length?esc(storm.join(", ")):"No prevista"}</strong><em>Basado en códigos horarios del modelo</em></div>
+        <div><span>🌅</span><small>Amanecer / anochecer</small><strong>${weatherTime(day.sunrise)} → ${weatherTime(day.sunset)}</strong><em>Ráfaga máxima: ${Math.round(day.gust)} km/h</em></div>
+      </div>
+
+      <div class="weather-visual-timeline">
+        <div class="weather-band-hours"><strong>Hora</strong><div>${hourLabels}</div></div>
+        ${band("Luz",lightCells,"light-band")}
+        ${band("Visibilidad",fogCells)}
+        ${band("Lluvia",rainCells)}
+        ${band("Tormenta",stormCells)}
+      </div>
+      <div class="weather-band-legend">
+        <span><i class="safe"></i>Normal</span>
+        <span><i class="caution"></i>Atención</span>
+        <span><i class="high"></i>Riesgo</span>
+        <span><i class="critical"></i>Crítico</span>
+      </div>
+
+      <div class="weather-hour-scroll" aria-label="Pronóstico hora por hora">
+        <div class="weather-hour-grid">${hourCells}</div>
+      </div>
+      <p class="weather-detail-note">Las franjas horarias son estimaciones del modelo y pueden desplazarse. Para tormentas cercanas o fenómenos de rápida evolución, verificá el radar y los avisos oficiales del SMN.</p>
+    </div>
+  `;
+}
+
 function bindDailyView(){
   const search = q("#quickSearch");
   if(search) search.addEventListener("input", renderDailyView);
