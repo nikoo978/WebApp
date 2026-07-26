@@ -1,6 +1,15 @@
 const HOURS = ["7-9","9-11","11-13","13-15","15-17","17-19","19-21","21-23","23-01","01-03","03-05","05-07"];
 const BLOCKS = [[7,9],[9,11],[11,13],[13,15],[15,17],[17,19],[19,21],[21,23],[23,25],[25,27],[27,29],[29,31]];
 const DAYS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const WEEK_DAYS = [
+  {key:"lunes",label:"Lunes",short:"Lun"},
+  {key:"martes",label:"Martes",short:"Mar"},
+  {key:"miercoles",label:"Miércoles",short:"Mié"},
+  {key:"jueves",label:"Jueves",short:"Jue"},
+  {key:"viernes",label:"Viernes",short:"Vie"},
+  {key:"sabado",label:"Sábado",short:"Sáb"},
+  {key:"domingo",label:"Domingo",short:"Dom"}
+];
 const TURNOS = ["", "A", "B", "C", "D"];
 const SERVICES = ["24hs","4hs","6hs","12hs","Rondin","Canes","Diario","Recargo"];
 const FATIGUE_SERVICES = new Set(["12hs","24hs","canes"]);
@@ -12,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN9.1";
+const APP_VERSION = "WebN11";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -24,17 +33,20 @@ const PERSONAL_UPDATE_NAMES = new Set([
 ]);
 const MAX_CLOUD_BACKUPS = 20;
 const MAX_UNDO_SNAPSHOTS = 10;
+const MAX_PERSONAL_BACKUPS = 5;
 
 let state = null;
 let selectedTurnoAdmin = "A";
 let selectedFixedIndex = null;
 let selectedRot48Index = null;
 let selectedAbsence = null;
+let selectedPersonIndex = null;
 let longPressTimer = null;
 let longPressFired = false;
 let lastContentSnapshot = "";
 let saveTimer = null;
 let isRestoringUndo = false;
+let lastPlanillaSnapshot = "";
 
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
 function norm(v){ return String(v||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
@@ -64,16 +76,115 @@ function normalizeAbsenceRecord(a){
     observaciones: String(a.observaciones || "").trim()
   };
 }
+function emptyDaySchedule(defaultService=""){
+  return {
+    activo:false,
+    servicio:defaultService || "Diario",
+    modalidad:"Fijo",
+    inicio:"",
+    fin:"",
+    semana_a_inicio:"",
+    semana_a_fin:"",
+    semana_b_inicio:"",
+    semana_b_fin:""
+  };
+}
+function normalizeDaySchedule(raw, defaultService=""){
+  raw = {...(raw || {})};
+  const modalidad = norm(raw.modalidad).includes("rotativo") ? "Rotativo semanal" : "Fijo";
+  return {
+    activo: raw.activo === true || raw.activo === "true",
+    servicio: raw.servicio || defaultService || "Diario",
+    modalidad,
+    inicio: String(raw.inicio || raw.hora_inicio || "").padStart(raw.inicio || raw.hora_inicio ? 2 : 0,"0"),
+    fin: String(raw.fin || raw.hora_fin || "").padStart(raw.fin || raw.hora_fin ? 2 : 0,"0"),
+    semana_a_inicio: String(raw.semana_a_inicio || raw.rotativo_a_inicio || "").padStart(raw.semana_a_inicio || raw.rotativo_a_inicio ? 2 : 0,"0"),
+    semana_a_fin: String(raw.semana_a_fin || raw.rotativo_a_fin || "").padStart(raw.semana_a_fin || raw.rotativo_a_fin ? 2 : 0,"0"),
+    semana_b_inicio: String(raw.semana_b_inicio || raw.rotativo_b_inicio || "").padStart(raw.semana_b_inicio || raw.rotativo_b_inicio ? 2 : 0,"0"),
+    semana_b_fin: String(raw.semana_b_fin || raw.rotativo_b_fin || "").padStart(raw.semana_b_fin || raw.rotativo_b_fin ? 2 : 0,"0")
+  };
+}
+function weeklyScheduleFromLegacy(p){
+  const weekly = Object.fromEntries(WEEK_DAYS.map(d=>[d.key,emptyDaySchedule(p.servicio)]));
+  const assignments = Array.isArray(p.asignaciones) && p.asignaciones.length ? p.asignaciones : [{
+    dias:p.dias,
+    hora_inicio:p.hora_inicio,
+    hora_fin:p.hora_fin,
+    servicio:p.servicio,
+    modalidad:p.modalidad,
+    rotativo_a_inicio:p.rotativo_a_inicio,
+    rotativo_a_fin:p.rotativo_a_fin,
+    rotativo_b_inicio:p.rotativo_b_inicio,
+    rotativo_b_fin:p.rotativo_b_fin
+  }];
+  assignments.forEach(a=>{
+    let keys = [...dayTokens(a.dias || "")];
+    if(keys.includes("todos")) keys = WEEK_DAYS.map(d=>d.key);
+    keys.filter(k=>weekly[k]).forEach(key=>{
+      const modalidad = norm(a.modalidad).includes("rotativo") ? "Rotativo semanal" : "Fijo";
+      weekly[key] = normalizeDaySchedule({
+        activo:true,
+        servicio:a.servicio || p.servicio,
+        modalidad,
+        inicio:a.hora_inicio || p.hora_inicio,
+        fin:a.hora_fin || p.hora_fin,
+        semana_a_inicio:a.rotativo_a_inicio || p.rotativo_a_inicio,
+        semana_a_fin:a.rotativo_a_fin || p.rotativo_a_fin,
+        semana_b_inicio:a.rotativo_b_inicio || p.rotativo_b_inicio,
+        semana_b_fin:a.rotativo_b_fin || p.rotativo_b_fin
+      }, p.servicio);
+    });
+  });
+  return weekly;
+}
+function normalizeWeeklySchedule(p){
+  const source = p.horario_semanal;
+  if(source && typeof source === "object" && WEEK_DAYS.some(d=>source[d.key])){
+    return Object.fromEntries(WEEK_DAYS.map(d=>[d.key,normalizeDaySchedule(source[d.key],p.servicio)]));
+  }
+  return weeklyScheduleFromLegacy(p);
+}
+function weeklyScheduleToAssignments(p){
+  return WEEK_DAYS.flatMap(day=>{
+    const s = p.horario_semanal?.[day.key];
+    if(!s?.activo) return [];
+    return [{
+      dias:day.label.toUpperCase(),
+      hora_inicio:s.modalidad === "Fijo" ? s.inicio : s.semana_a_inicio,
+      hora_fin:s.modalidad === "Fijo" ? s.fin : s.semana_a_fin,
+      servicio:s.servicio || p.servicio || "",
+      modalidad:s.modalidad || "Fijo",
+      rotativo_a_inicio:s.semana_a_inicio || "",
+      rotativo_a_fin:s.semana_a_fin || "",
+      rotativo_b_inicio:s.semana_b_inicio || "",
+      rotativo_b_fin:s.semana_b_fin || "",
+      fecha_base_rotacion:p.fecha_base_rotacion || "",
+      observaciones:p.observaciones || ""
+    }];
+  });
+}
+function syncLegacyScheduleFields(p){
+  const active = WEEK_DAYS.map(d=>({day:d,s:p.horario_semanal?.[d.key]})).filter(x=>x.s?.activo);
+  p.dias = active.map(x=>x.day.label).join(", ").toUpperCase();
+  const first = active[0]?.s || emptyDaySchedule(p.servicio);
+  p.hora_inicio = first.modalidad === "Fijo" ? first.inicio : first.semana_a_inicio;
+  p.hora_fin = first.modalidad === "Fijo" ? first.fin : first.semana_a_fin;
+  p.modalidad = active.some(x=>x.s.modalidad === "Rotativo semanal") ? "Rotativo semanal" : "Fijo";
+  p.rotativo_a_inicio = first.semana_a_inicio || "";
+  p.rotativo_a_fin = first.semana_a_fin || "";
+  p.rotativo_b_inicio = first.semana_b_inicio || "";
+  p.rotativo_b_fin = first.semana_b_fin || "";
+  p.asignaciones = weeklyScheduleToAssignments(p);
+  return p;
+}
 function normalizePersonRecord(p){
   p = {...p};
   p.nombre = toTitleName(cleanName(p.nombre || ""));
   p.estado = p.estado || "Activo";
   if(INACTIVE_OVERRIDES.has(norm(p.nombre))) p.estado = "Inactivo";
-  if(Array.isArray(p.asignaciones)){
-    p.asignaciones = p.asignaciones.map(a=>({...a}));
-  }
+  p.horario_semanal = normalizeWeeklySchedule(p);
   p.ausencias = Array.isArray(p.ausencias) ? p.ausencias.map(normalizeAbsenceRecord) : [];
-  return p;
+  return syncLegacyScheduleFields(p);
 }
 function migratePersonalCatalog(){
   const currentVersion = Number(state.personal_catalog_version || 0);
@@ -141,6 +252,239 @@ function diffDays(a,b){ return Math.floor((a-b)/86400000); }
 function turnoFromDate(d){ if(!d) return ""; return TURNO_SEQ[((diffDays(d,TURNO_REF)%4)+4)%4]; }
 function dayName(d){ return DAYS[d.getDay() === 0 ? 7 : d.getDay()]; }
 
+function cleanPlanillaForDate(date=new Date()){
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return {
+    fecha:formatDMY(d),
+    dia:dayName(d),
+    turno:turnoFromDate(d),
+    deben:Array(12).fill(""),
+    rows:[]
+  };
+}
+function hasMeaningfulPlanilla(planilla){
+  if(!planilla) return false;
+  const meaningfulRow=(planilla.rows||[]).some(row=>
+    String(row.nombre||"").trim() || String(row.servicio||"").trim() ||
+    (row.cells||[]).some(v=>String(v||"").trim())
+  );
+  return meaningfulRow || (planilla.deben||[]).some(v=>String(v||"").trim());
+}
+function prepareSessionPlanilla(){
+  const previous = clone(state.planilla || cleanPlanillaForDate(new Date()));
+  if(!state.last_planilla_draft && hasMeaningfulPlanilla(previous)){
+    state.last_planilla_draft = {saved_at:new Date().toISOString(), planilla:previous};
+  }
+  state.planilla = cleanPlanillaForDate(new Date());
+  lastPlanillaSnapshot = JSON.stringify(state.planilla);
+}
+function persistentState(){
+  const payload = clone(state);
+  payload.planilla = cleanPlanillaForDate(new Date());
+  return payload;
+}
+function mergeLocalRecoveryData(){
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(!raw) return;
+  try{
+    const cached=JSON.parse(raw);
+    const localDraft=cached.last_planilla_draft?.planilla
+      ? cached.last_planilla_draft
+      : hasMeaningfulPlanilla(cached.planilla)
+        ? {saved_at:cached.updated_at || new Date().toISOString(),planilla:cached.planilla}
+        : null;
+    const cloudTime=state.last_planilla_draft?.saved_at ? new Date(state.last_planilla_draft.saved_at).getTime() : 0;
+    const localTime=localDraft?.saved_at ? new Date(localDraft.saved_at).getTime() : 0;
+    if(localDraft?.planilla && (!state.last_planilla_draft || (localTime>0 && localTime>=cloudTime))) state.last_planilla_draft=clone(localDraft);
+    const cloudBackupTime=state.personal_backups_updated_at ? new Date(state.personal_backups_updated_at).getTime() : 0;
+    const localBackupTime=cached.personal_backups_updated_at ? new Date(cached.personal_backups_updated_at).getTime() : 0;
+    if(localBackupTime>cloudBackupTime){
+      state.personal_backups=(cached.personal_backups||[]).slice(0,MAX_PERSONAL_BACKUPS);
+      state.personal_backups_updated_at=cached.personal_backups_updated_at;
+    }
+  }catch{}
+}
+function capturePlanillaDraftIfChanged(options={}){
+  const current = JSON.stringify(state.planilla || {});
+  if(lastPlanillaSnapshot && current !== lastPlanillaSnapshot && !options.skipPlanillaDraft && hasMeaningfulPlanilla(state.planilla)){
+    state.last_planilla_draft = {
+      saved_at:new Date().toISOString(),
+      planilla:clone(state.planilla)
+    };
+  }
+  lastPlanillaSnapshot = current;
+}
+function recoverLastPlanilla(){
+  const draft = state.last_planilla_draft;
+  if(!draft?.planilla) return alert("Todavía no hay una tabla para recuperar.");
+  const errors = validatePlanillaData(draft.planilla);
+  if(errors.length) return showValidationErrors(errors,"La última tabla necesita correcciones");
+  const when = draft.saved_at ? new Date(draft.saved_at).toLocaleString() : "fecha desconocida";
+  if(!confirm(`¿Recuperar la última tabla guardada (${when})? La tabla limpia actual será reemplazada.`)) return;
+  state.planilla = clone(draft.planilla);
+  lastPlanillaSnapshot = JSON.stringify(state.planilla);
+  pushHistory("Recuperar última tabla de trabajo");
+  save({silent:true, skipPlanillaDraft:true});
+  renderAll();
+}
+function renderLastDraftInfo(){
+  const el=q("#lastDraftInfo");
+  const btn=q("#btnRecoverLastTable");
+  if(!el || !btn) return;
+  const draft=state.last_planilla_draft;
+  if(!draft?.planilla){
+    el.textContent="No hay una tabla anterior guardada.";
+    btn.disabled=true;
+    return;
+  }
+  const date=draft.planilla.fecha || "sin fecha";
+  const when=draft.saved_at ? new Date(draft.saved_at).toLocaleString() : "sin hora";
+  el.textContent=`Última tabla recuperable: ${date} · guardada ${when}`;
+  btn.disabled=false;
+}
+function isReadableText(value){
+  return !/[\u0000-\u001f\u007f\ufffd]/.test(String(value||""));
+}
+function isStrictHour(value){
+  const v=String(value||"").trim();
+  return /^(?:[01]?\d|2[0-3])(?::[0-5]\d)?$/.test(v);
+}
+function duplicateNames(items){
+  const seen=new Map(), duplicates=new Set();
+  items.forEach(value=>{
+    const name=toTitleName(cleanName(value));
+    if(!name) return;
+    const key=norm(name);
+    if(seen.has(key)) duplicates.add(name); else seen.set(key,name);
+  });
+  return [...duplicates].sort((a,b)=>a.localeCompare(b));
+}
+function validateWeeklyScheduleDetailed(weekly, personName="Personal", baseDate=""){
+  const errors=[];
+  let hasRotative=false;
+  for(const day of WEEK_DAYS){
+    const s=weekly?.[day.key];
+    if(!s?.activo) continue;
+    if(!SERVICES.some(service=>serviceKey(service)===serviceKey(s.servicio))) errors.push(`${personName}: servicio inválido en ${day.label}.`);
+    if(["24hs","canes"].includes(serviceKey(s.servicio))) continue;
+    if(s.modalidad === "Rotativo semanal"){
+      hasRotative=true;
+      const fields=[
+        [s.semana_a_inicio,"inicio Semana A"],[s.semana_a_fin,"fin Semana A"],
+        [s.semana_b_inicio,"inicio Semana B"],[s.semana_b_fin,"fin Semana B"]
+      ];
+      fields.forEach(([value,label])=>{ if(!isStrictHour(value)) errors.push(`${personName}: ${label} inválido en ${day.label}.`); });
+      if(isStrictHour(s.semana_a_inicio)&&isStrictHour(s.semana_a_fin)&&parseHour(s.semana_a_inicio)===parseHour(s.semana_a_fin)) errors.push(`${personName}: Semana A inicia y termina a la misma hora en ${day.label}.`);
+      if(isStrictHour(s.semana_b_inicio)&&isStrictHour(s.semana_b_fin)&&parseHour(s.semana_b_inicio)===parseHour(s.semana_b_fin)) errors.push(`${personName}: Semana B inicia y termina a la misma hora en ${day.label}.`);
+    }else{
+      if(!isStrictHour(s.inicio)) errors.push(`${personName}: hora de inicio inválida en ${day.label}.`);
+      if(!isStrictHour(s.fin)) errors.push(`${personName}: hora de fin inválida en ${day.label}.`);
+      if(isStrictHour(s.inicio)&&isStrictHour(s.fin)&&parseHour(s.inicio)===parseHour(s.fin)) errors.push(`${personName}: el horario inicia y termina a la misma hora en ${day.label}.`);
+    }
+  }
+  if(hasRotative && !parseDMY(baseDate)) errors.push(`${personName}: falta una fecha base válida para la rotación semanal.`);
+  return errors;
+}
+function validatePersonRecordDetailed(person,index=-1){
+  const errors=[];
+  const label=person.nombre || `Registro ${index+1}`;
+  if(!String(person.nombre||"").trim()) errors.push(`Personal ${index+1}: falta el nombre.`);
+  if(!isReadableText([person.nombre,person.jerarquia,person.legajo,person.situacion,person.observaciones].join(" "))) errors.push(`${label}: contiene caracteres ilegibles o inválidos.`);
+  if(person.legajo && !/^[0-9.\-/]+$/.test(String(person.legajo).trim())) errors.push(`${label}: el legajo contiene caracteres inválidos.`);
+  if(person.estado && !["activo","inactivo"].includes(norm(person.estado))) errors.push(`${label}: estado inválido.`);
+  errors.push(...validateWeeklyScheduleDetailed(person.horario_semanal||{},label,person.fecha_base_rotacion||""));
+  (person.ausencias||[]).forEach((raw,aIndex)=>{
+    const a=normalizeAbsenceRecord(raw);
+    const from=parseDMY(a.desde), to=parseDMY(a.hasta);
+    if(!from) errors.push(`${label}: licencia ${aIndex+1} con fecha de inicio inválida.`);
+    if(a.tipo==="Art 214" && !to) errors.push(`${label}: Art. 214 sin fecha de finalización válida.`);
+    if(a.tipo==="Carpeta Medica" && !String(a.articulo||"").trim()) errors.push(`${label}: Carpeta Médica sin artículo o motivo.`);
+    if(to && from && to<from) errors.push(`${label}: una licencia termina antes de comenzar.`);
+  });
+  return errors;
+}
+function validatePersonalCatalog(personal=state.personal){
+  const errors=[];
+  duplicateNames((personal||[]).map(p=>p.nombre)).forEach(name=>errors.push(`Personal repetido en la nómina: ${name}.`));
+  (personal||[]).forEach((p,i)=>errors.push(...validatePersonRecordDetailed(p,i)));
+  return errors;
+}
+function validateTurnosData(turnos=state.turnos){
+  const errors=[];
+  const fixedOccurrences=new Map();
+  for(const turno of TURNO_SEQ){
+    const names=(turnos?.turnos_24?.[turno]||[]).map(n=>toTitleName(cleanName(n))).filter(Boolean);
+    duplicateNames(names).forEach(name=>errors.push(`Turno ${turno}: ${name} está repetido.`));
+    names.forEach(name=>{
+      const key=norm(name); const previous=fixedOccurrences.get(key);
+      if(previous && previous!==turno) errors.push(`${name} figura en los turnos fijos ${previous} y ${turno}.`);
+      else fixedOccurrences.set(key,turno);
+    });
+  }
+  const rotatives=turnos?.rotativos_48||[];
+  duplicateNames(rotatives.map(r=>r.nombre)).forEach(name=>errors.push(`Rotativo 48 repetido: ${name}.`));
+  rotatives.forEach((r,i)=>{
+    const label=r.nombre||`Rotativo ${i+1}`;
+    if(!r.nombre) errors.push(`Rotativo 48 ${i+1}: falta el nombre.`);
+    if(!Array.isArray(r.turnos)||r.turnos.length!==2||r.turnos.some(t=>!TURNO_SEQ.includes(t))) errors.push(`${label}: combinación de turnos inválida.`);
+    if(!parseDMY(r.fecha_presente)) errors.push(`${label}: fecha presente inválida.`);
+  });
+  const canes=TURNO_SEQ.map(t=>turnos?.canes_por_turno?.[t]).filter(Boolean);
+  duplicateNames(canes).forEach(name=>errors.push(`Canes repetido en más de un turno: ${name}.`));
+  const roles=new Map();
+  const addRole=(name,role)=>{
+    const clean=toTitleName(cleanName(name)); if(!clean) return;
+    const key=norm(clean); const item=roles.get(key)||{name:clean,roles:[]}; item.roles.push(role); roles.set(key,item);
+  };
+  for(const turno of TURNO_SEQ){
+    (turnos?.turnos_24?.[turno]||[]).forEach(name=>addRole(name,`turno fijo ${turno}`));
+    addRole(turnos?.canes_por_turno?.[turno],`Canes ${turno}`);
+  }
+  rotatives.forEach(r=>addRole(r.nombre,"rotativo 48 h"));
+  roles.forEach(item=>{ if(item.roles.length>1) errors.push(`${item.name} aparece en más de una asignación operativa: ${item.roles.join(", ")}.`); });
+  return [...new Set(errors)];
+}
+function validatePlanillaData(planilla=state.planilla){
+  const errors=[];
+  const date=parseDMY(planilla?.fecha);
+  if(!date) errors.push("Planilla: la fecha es inválida. Usá DD/MM/AAAA.");
+  if(date && planilla.dia && norm(planilla.dia)!==norm(dayName(date))) errors.push(`Planilla: el día ${planilla.dia} no coincide con la fecha ${planilla.fecha}.`);
+  if(planilla.turno && !TURNO_SEQ.includes(planilla.turno)) errors.push("Planilla: turno 24 inválido.");
+  (planilla.deben||[]).forEach((value,i)=>{
+    const v=String(value||"").trim();
+    if(v && !/^\d+(?:[.,]\d+)?$/.test(v)) errors.push(`Deben haber ${HOURS[i]}: ingresá solamente un número.`);
+  });
+  const names=(planilla.rows||[]).map(r=>r.nombre).filter(Boolean);
+  duplicateNames(names).forEach(name=>errors.push(`Planilla: ${name} aparece más de una vez.`));
+  (planilla.rows||[]).forEach((row,i)=>{
+    const rowNo=i+1, name=String(row.nombre||"").trim();
+    const hasData=!!name || !!row.servicio || (row.cells||[]).some(v=>String(v||"").trim());
+    if(hasData && !name) errors.push(`Planilla: la fila ${rowNo} no tiene nombre.`);
+    if(name && !isReadableText(name)) errors.push(`Planilla: la fila ${rowNo} contiene un nombre ilegible.`);
+    if(name && !SERVICES.includes(row.servicio)) errors.push(`Planilla: ${name} tiene un servicio inválido.`);
+    (row.cells||[]).forEach((value,c)=>{
+      if(!["","X","X/","/X","H","./X"].includes(token(value))) errors.push(`Planilla: ${name||"fila "+rowNo}, ${HOURS[c]} contiene una marca inválida.`);
+    });
+  });
+  return [...new Set(errors)];
+}
+function validateMasterData(){ return [...validatePersonalCatalog(),...validateTurnosData()]; }
+function validateAllData(){ return [...validateMasterData(),...validatePlanillaData()]; }
+function showValidationErrors(errors,title="Correcciones necesarias"){
+  const unique=[...new Set((errors||[]).filter(Boolean))];
+  if(!unique.length) return false;
+  q("#validationModalTitle").textContent=title;
+  q("#validationModalSubtitle").textContent=`Se encontraron ${unique.length} problema${unique.length===1?"":"s"}. Corregilos antes de continuar.`;
+  q("#validationList").innerHTML=unique.map((error,i)=>`<li><strong>${i+1}.</strong> ${esc(error)}</li>`).join("");
+  q("#validationModal").classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  return true;
+}
+function closeValidationModal(){
+  q("#validationModal")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
 function loadState(){
   const saved = localStorage.getItem(STORAGE_KEY);
   if(saved){
@@ -150,17 +494,12 @@ function loadState(){
       return parsed;
     } catch {}
   }
-  const d = new Date();
   return {
     personal: clone(window.SEED_PERSONAL || []).map(normalizePersonRecord),
     turnos: normalizeTurnos(clone(window.SEED_TURNOS || {})),
-    planilla: {
-      fecha: formatDMY(d),
-      dia: dayName(d),
-      turno: turnoFromDate(d),
-      deben: Array(12).fill(""),
-      rows: []
-    }
+    planilla: cleanPlanillaForDate(new Date()),
+    last_planilla_draft:null,
+    personal_backups:[]
   };
 }
 function normalizeTurnos(t){
@@ -168,15 +507,22 @@ function normalizeTurnos(t){
   t.canes_por_turno ||= {A:"",B:"",C:"",D:""};
   t.rotativos_48 ||= [];
   for(const k of ["A","B","C","D"]){
-    t.turnos_24[k] = (t.turnos_24[k] || []).map(n=>toTitleName(cleanName(n)));
+    const seen = new Set();
+    t.turnos_24[k] = (t.turnos_24[k] || [])
+      .map(n=>toTitleName(cleanName(n)))
+      .filter(n=>n && !seen.has(norm(n)) && seen.add(norm(n)));
     t.canes_por_turno[k] = toTitleName(cleanName(t.canes_por_turno[k] || ""));
   }
+  const seenRot = new Set();
   t.rotativos_48 = t.rotativos_48.map(r=>({
     nombre: toTitleName(cleanName(r.nombre||"")),
     turnos: Array.isArray(r.turnos) ? r.turnos.slice(0,2) : String(r.turnos||"C-D").split("-").slice(0,2),
     fecha_presente: r.fecha_presente || "",
     activo: r.activo !== false
-  }));
+  })).filter(r=>r.nombre && !seenRot.has(norm(r.nombre)) && seenRot.add(norm(r.nombre)));
+  // Los rotativos se administran únicamente en la lista de 48 h para evitar filas repetidas.
+  const rotNames = new Set(t.rotativos_48.map(r=>norm(r.nombre)));
+  for(const k of ["A","B","C","D"]) t.turnos_24[k] = t.turnos_24[k].filter(n=>!rotNames.has(norm(n)));
   return t;
 }
 async function init(){
@@ -190,6 +536,8 @@ async function init(){
   bindDashboard();
   bindDailyView();
   bindPin();
+  q("#btnCloseValidationModal")?.addEventListener("click",closeValidationModal);
+  q("#validationModal")?.addEventListener("click",event=>{ if(event.target.id==="validationModal") closeValidationModal(); });
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   }
@@ -221,11 +569,13 @@ async function startCloudSession(){
     setStatus("Conectando...", "saving");
     state = await fetchCloudState();
     normalizeLoadedState();
+    mergeLocalRecoveryData();
+    prepareSessionPlanilla();
     q("#lockScreen").classList.add("hidden");
     setStatus("Nube sincronizada", "ok");
     lastContentSnapshot = contentSnapshot();
     renderAll();
-    save({silent:true});
+    save({silent:true, skipPlanillaDraft:true});
   }catch(err){
     if(err.status === 401){
       q("#lockScreen").classList.remove("hidden");
@@ -236,6 +586,7 @@ async function startCloudSession(){
     if(cached){
       state = JSON.parse(cached);
       normalizeLoadedState();
+      prepareSessionPlanilla();
       lastContentSnapshot = contentSnapshot();
       q("#lockScreen").classList.add("hidden");
       setStatus("Sin nube · usando caché local", "error");
@@ -268,6 +619,9 @@ function normalizeLoadedState(){
   state.history ||= [];
   state.undoStack = (state.undoStack || []).slice(0, MAX_UNDO_SNAPSHOTS);
   state.backups = (state.backups || []).slice(0, MAX_CLOUD_BACKUPS);
+  state.personal_backups = (state.personal_backups || []).slice(0, MAX_PERSONAL_BACKUPS);
+  state.personal_backups_updated_at ||= "";
+  state.last_planilla_draft ||= null;
   state.backup_settings ||= {frequency:"daily", last_auto_backup_at:""};
   state.app_version = APP_VERSION;
 }
@@ -276,6 +630,9 @@ function contentState(){
     personal: state.personal || [],
     turnos: state.turnos || {},
     planilla: state.planilla || {},
+    last_planilla_draft: state.last_planilla_draft || null,
+    personal_backups: state.personal_backups || [],
+    personal_backups_updated_at: state.personal_backups_updated_at || "",
     backup_settings: state.backup_settings || {frequency:"daily", last_auto_backup_at:""}
   };
 }
@@ -298,10 +655,12 @@ function registerContentChange(options={}){
 function save(options={}){
   if(!state) return;
   normalizeLoadedState();
+  capturePlanillaDraftIfChanged(options);
   registerContentChange(options);
   maybeAutoBackup();
   lastContentSnapshot = contentSnapshot();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const payload = persistentState();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   setStatus("Guardando...", "saving");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async ()=>{
@@ -309,7 +668,7 @@ function save(options={}){
       const res = await fetch("/api/state", {
         method:"PUT",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(state)
+        body:JSON.stringify(payload)
       });
       if(!res.ok) throw new Error("Error al guardar");
       setStatus("Nube sincronizada", "ok");
@@ -321,8 +680,12 @@ function save(options={}){
 function restoreContentSnapshot(data){
   state.personal = (data.personal || []).map(normalizePersonRecord);
   state.turnos = normalizeTurnos(data.turnos || {});
-  state.planilla = data.planilla || {fecha:todayDMY(), dia:"", turno:"", deben:Array(12).fill(""), rows:[]};
+  state.planilla = data.planilla || cleanPlanillaForDate(new Date());
+  state.last_planilla_draft = data.last_planilla_draft || state.last_planilla_draft || null;
+  state.personal_backups = (data.personal_backups || state.personal_backups || []).slice(0,MAX_PERSONAL_BACKUPS);
+  state.personal_backups_updated_at = data.personal_backups_updated_at || state.personal_backups_updated_at || "";
   state.backup_settings = data.backup_settings || state.backup_settings || {frequency:"daily", last_auto_backup_at:""};
+  lastPlanillaSnapshot = JSON.stringify(state.planilla);
 }
 function undoLastChange(){
   if(!state.undoStack || !state.undoStack.length) return alert("No hay cambios para deshacer.");
@@ -381,11 +744,7 @@ function fillSelects(){
   SERVICES.forEach(s=> service.append(new Option(s,s)));
   const personTurno = q("#personTurno");
   TURNOS.forEach(t=> personTurno.append(new Option(t,t)));
-  ["personStart","personEnd","rotAStart","rotAEnd","rotBStart","rotBEnd"].forEach(id=>{
-    const el = q("#"+id);
-    el.append(new Option("", ""));
-    for(let i=0;i<24;i++) el.append(new Option(pad(i), pad(i)));
-  });
+  
 }
 function q(sel){ return document.querySelector(sel); }
 function qa(sel){ return [...document.querySelectorAll(sel)]; }
@@ -410,6 +769,7 @@ function renderAll(){
   renderTurnos();
   renderVacaciones();
   renderAdminExtras();
+  renderLastDraftInfo();
 }
 function renderStaffDatalist(){
   const dl = q("#staffList");
@@ -489,12 +849,14 @@ function bindPlanilla(){
   window.addEventListener("beforeprint", ()=>{ if(!hasDebens()) document.body.classList.add("hide-empty-deben-print"); });
   window.addEventListener("afterprint", ()=> document.body.classList.remove("hide-empty-deben-print"));
   q("#btnAddRow").onclick = ()=> { state.planilla.rows.push(blankRow()); save({action:"Agregar fila"}); renderPlanilla(); };
-  q("#btnSaveAll").onclick = ()=> { save({action:"Guardado manual"}); alert("Guardado en la nube/localmente."); };
+  q("#btnSaveAll").onclick = ()=> { const errors=validateAllData(); if(showValidationErrors(errors)) return; save({action:"Guardado manual"}); alert("Datos validados y guardados. La tabla volverá limpia al refrescar; esta versión queda disponible en Recuperar última tabla."); };
   q("#btnLoadDay").onclick = loadDay;
+  q("#btnRecoverLastTable").onclick = recoverLastPlanilla;
+  q("#btnValidateData").onclick = ()=>{ const errors=validateAllData(); if(!showValidationErrors(errors)) alert("Validación completa: no se encontraron errores."); };
   q("#btnSort").onclick = ()=> { sortRows(); save({action:"Ordenar por servicio"}); renderPlanilla(); renderDashboard(); renderDailyView(); };
   q("#btnClear").onclick = ()=> { if(confirm("¿Limpiar filas?")){ state.planilla.rows=[]; save({action:"Limpiar filas"}); renderAll(); } };
-  q("#btnPrint").onclick = ()=> window.print();
-  q("#btnExportJpg").onclick = exportPlanillaJpg;
+  q("#btnPrint").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de imprimir")) return; window.print(); };
+  q("#btnExportJpg").onclick = ()=> { const errors=validatePlanillaData(); if(showValidationErrors(errors,"Corregí la planilla antes de exportar")) return; exportPlanillaJpg(); };
   q("#planDate").addEventListener("change", ()=>{
     const d = parseAnyDate(q("#planDate").value);
     if(d){ state.planilla.fecha=formatDMY(d); state.planilla.dia=dayName(d); state.planilla.turno=turnoFromDate(d); save({action:"Cambiar fecha"}); renderAll(); }
@@ -528,7 +890,15 @@ function renderPlanilla(){
   const tr3 = document.createElement("tr");
   tr3.innerHTML = `<th class="name-cell">Hora:</th>` + HOURS.map(h=>`<th class="hour-cell">${h}</th>`).join("") + `<th class="tiros-cell">Tiros</th><th class="service-cell">Servicio</th><th class="order-cell">Orden</th>`;
   head.append(tr1,tr2,tr3);
-  qa(".deben").forEach(inp => inp.onchange = e=>{ state.planilla.deben[Number(inp.dataset.i)] = e.target.value; save({action:"Modificar Deben haber"}); renderDashboard(); renderPlanilla(); });
+  qa(".deben").forEach(inp => inp.onchange = e=>{
+    const value=e.target.value.trim();
+    if(value && !/^\d+(?:[.,]\d+)?$/.test(value)){
+      e.target.value=state.planilla.deben[Number(inp.dataset.i)]||"";
+      return showValidationErrors([`Deben haber ${HOURS[Number(inp.dataset.i)]}: ingresá solamente un número.`]);
+    }
+    state.planilla.deben[Number(inp.dataset.i)] = value;
+    save({action:"Modificar Deben haber"}); renderDashboard(); renderPlanilla();
+  });
 
   const body = q("#shiftBody");
   body.innerHTML = "";
@@ -548,7 +918,21 @@ function renderPlanilla(){
   });
 
   body.querySelectorAll("input[data-field='nombre']").forEach(inp=>{
-    inp.onchange = e=> { const row = state.planilla.rows[Number(inp.dataset.r)]; row.nombre=toTitleName(cleanName(e.target.value)); const p = getPerson(row.nombre); if(p && !row.servicio){ row.servicio=p.servicio||""; row.cells=personMarks(p); } save({action:"Modificar nombre en planilla"}); renderAll(); };
+    inp.onchange = e=> {
+      const r=Number(inp.dataset.r), row=state.planilla.rows[r], previous=row.nombre;
+      const next=toTitleName(cleanName(e.target.value));
+      if(!isReadableText(next)){
+        e.target.value=previous;
+        return showValidationErrors(["El nombre contiene caracteres ilegibles o inválidos."]);
+      }
+      if(next && state.planilla.rows.some((other,i)=>i!==r && norm(other.nombre)===norm(next))){
+        e.target.value=previous;
+        return showValidationErrors([`${next} ya está cargado en la planilla.`],"Personal repetido");
+      }
+      row.nombre=next;
+      const p = getPerson(row.nombre); if(p && !row.servicio){ row.servicio=p.servicio||""; row.cells=personMarks(p); }
+      save({action:"Modificar nombre en planilla"}); renderAll();
+    };
     inp.onclick = e=> { if(e.getModifierState && e.getModifierState("Alt")) toggleRecargo(Number(inp.dataset.r)); };
   });
   body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{ state.planilla.rows[Number(sel.dataset.r)].servicio=e.target.value; save({action:"Modificar servicio en planilla"}); renderAll(); });
@@ -592,6 +976,7 @@ function renderPlanilla(){
       save({action:"Orden manual de filas"}); renderAll();
     };
   });
+  renderLastDraftInfo();
 }
 function esc(s){ return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function formatNum(n){ return Number.isInteger(n) ? String(n) : String(n).replace(".",","); }
@@ -676,9 +1061,27 @@ function sortRows(){
   state.planilla.rows.sort((a,b)=>(a.recargo?4:rank(a.servicio))-(b.recargo?4:rank(b.servicio)) || a.nombre.localeCompare(b.nombre));
 }
 
+function formatTime(v){
+  const h=parseHour(v);
+  return h==null ? "--:--" : `${pad(h)}:00`;
+}
+function assignmentScheduleMeta(a,p,d){
+  const range = assignmentRange(a,p,d);
+  const service = serviceForAssignment(a,p);
+  if(range.fullDay) return {text:"24 horas",start:"07",end:"07",fullDay:true,week:range.week||""};
+  const prefix = range.week ? `Semana ${range.week} · ` : "";
+  return {text:`${prefix}${formatTime(range.start)} a ${formatTime(range.end)}`,start:range.start,end:range.end,fullDay:false,week:range.week||"",service};
+}
+function standardRow(name,service,cells,meta={}){
+  return {nombre:name,servicio:service,cells,recargo:false,schedule_text:meta.text||"",range_start:meta.start||"",range_end:meta.end||"",full_day:!!meta.fullDay,source:meta.source||""};
+}
+
 function loadDay(){
+  const masterErrors=validateMasterData();
+  if(showValidationErrors(masterErrors,"Corregí los datos antes de cargar la tabla")) return;
   const d = parseDMY(state.planilla.fecha);
-  if(!d) return alert("Fecha inválida. Usá DD/MM/AAAA.");
+  if(!d) return showValidationErrors(["Fecha inválida. Usá DD/MM/AAAA."],"No se pudo cargar la tabla");
+  const previous=clone(state.planilla);
   state.planilla.rows = [];
   state.planilla.dia = dayName(d);
   state.planilla.turno = turnoFromDate(d);
@@ -690,11 +1093,19 @@ function loadDay(){
     matchingAssignments(p).forEach(a=>{
       const service = a.servicio || p.servicio || "";
       if(serviceKey(service)==="24hs") return;
-      state.planilla.rows.push({nombre:p.nombre, servicio:serviceForAssignment(a,p), cells:marksForAssignment(a,p), recargo:false});
+      const meta = assignmentScheduleMeta(a,p,d);
+      state.planilla.rows.push(standardRow(p.nombre,serviceForAssignment(a,p),marksForAssignment(a,p),meta));
     });
   });
   addStandardRows(d);
   sortRows();
+  const planErrors=validatePlanillaData();
+  if(planErrors.length){
+    state.planilla=previous;
+    lastPlanillaSnapshot=JSON.stringify(state.planilla);
+    renderAll();
+    return showValidationErrors(planErrors,"La carga generó conflictos");
+  }
   save({action:"Cargar personal del día"}); renderAll();
 }
 function addStandardRows(d){
@@ -705,22 +1116,22 @@ function addStandardRows(d){
   (state.turnos.turnos_24?.[turno] || []).forEach(n=>{
     const name = toTitleName(cleanName(n));
     if(rotNames.has(norm(name)) || isPersonUnavailableByName(name,d)) return;
-    if(!existing.has(norm(name))){ state.planilla.rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
+    if(!existing.has(norm(name))){ state.planilla.rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · 24 horas`,start:"07",end:"07",fullDay:true,source:"Turno fijo"})); existing.add(norm(name)); }
   });
 
   (state.turnos.rotativos_48||[]).forEach(item=>{
     if(rotativo48Present(item,d,turno)){
       const name = toTitleName(cleanName(item.nombre));
       if(isPersonUnavailableByName(name,d)) return;
-      if(!existing.has(norm(name))){ state.planilla.rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
+      if(!existing.has(norm(name))){ state.planilla.rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · Rotativo 48 · 24 horas`,start:"07",end:"07",fullDay:true,source:"Rotativo 48"})); existing.add(norm(name)); }
     }
   });
 
   const canes = toTitleName(cleanName(state.turnos.canes_por_turno?.[turno] || ""));
-  if(canes && !isPersonUnavailableByName(canes,d) && !existing.has(norm(canes))){ state.planilla.rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
+  if(canes && !isPersonUnavailableByName(canes,d) && !existing.has(norm(canes))){ state.planilla.rows.push(standardRow(canes,"Canes",Array(12).fill(""),{text:`Turno ${turno} · Canes · 24 horas`,start:"07",end:"07",fullDay:true,source:"Canes"})); existing.add(norm(canes)); }
 
   ["Rondin1","Rondin2","Rondin3"].forEach(n=>{
-    state.planilla.rows.push({nombre:n, servicio:"Rondin", cells:marksFromRange("22","07"), recargo:false});
+    state.planilla.rows.push(standardRow(n,"Rondin",marksFromRange("22","07"),{text:"22:00 a 07:00",start:"22",end:"07",source:"Rondín"}));
   });
 }
 
@@ -738,7 +1149,8 @@ function rowsForDate(d){
       matchingAssignments(p).forEach(a=>{
         const service = a.servicio || p.servicio || "";
         if(serviceKey(service)==="24hs") return;
-        rows.push({nombre:p.nombre, servicio:serviceForAssignment(a,p), cells:marksForAssignment(a,p), recargo:false});
+        const meta = assignmentScheduleMeta(a,p,d);
+        rows.push(standardRow(p.nombre,serviceForAssignment(a,p),marksForAssignment(a,p),meta));
       });
     });
     addStandardRowsTo(rows,d,state.planilla.turno);
@@ -760,18 +1172,18 @@ function addStandardRowsTo(rows,d,turno){
   (state.turnos.turnos_24?.[turno] || []).forEach(n=>{
     const name = toTitleName(cleanName(n));
     if(rotNames.has(norm(name)) || isPersonUnavailableByName(name,d)) return;
-    if(!existing.has(norm(name))){ rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
+    if(!existing.has(norm(name))){ rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · 24 horas`,start:"07",end:"07",fullDay:true,source:"Turno fijo"})); existing.add(norm(name)); }
   });
   (state.turnos.rotativos_48||[]).forEach(item=>{
     if(rotativo48Present(item,d,turno)){
       const name = toTitleName(cleanName(item.nombre));
       if(isPersonUnavailableByName(name,d)) return;
-      if(!existing.has(norm(name))){ rows.push({nombre:name, servicio:"24hs", cells:Array(12).fill(""), recargo:false}); existing.add(norm(name)); }
+      if(!existing.has(norm(name))){ rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · Rotativo 48 · 24 horas`,start:"07",end:"07",fullDay:true,source:"Rotativo 48"})); existing.add(norm(name)); }
     }
   });
   const canes = toTitleName(cleanName(state.turnos.canes_por_turno?.[turno] || ""));
-  if(canes && !isPersonUnavailableByName(canes,d) && !existing.has(norm(canes))){ rows.push({nombre:canes, servicio:"Canes", cells:Array(12).fill(""), recargo:false}); existing.add(norm(canes)); }
-  ["Rondin1","Rondin2","Rondin3"].forEach(n=>rows.push({nombre:n, servicio:"Rondin", cells:marksFromRange("22","07"), recargo:false}));
+  if(canes && !isPersonUnavailableByName(canes,d) && !existing.has(norm(canes))){ rows.push(standardRow(canes,"Canes",Array(12).fill(""),{text:`Turno ${turno} · Canes · 24 horas`,start:"07",end:"07",fullDay:true,source:"Canes"})); existing.add(norm(canes)); }
+  ["Rondin1","Rondin2","Rondin3"].forEach(n=>rows.push(standardRow(n,"Rondin",marksFromRange("22","07"),{text:"22:00 a 07:00",start:"22",end:"07",source:"Rondín"})));
 }
 
 function isAbsent(p,d){
@@ -822,13 +1234,36 @@ function dayTokens(text){
   return out;
 }
 function selectedDayKey(){ return norm(state.planilla.dia); }
+function dayKeyFromDate(d){ return norm(dayName(d)); }
+function scheduleForPersonDate(p,d){
+  if(!d) return null;
+  const key = dayKeyFromDate(d);
+  const s = p.horario_semanal?.[key];
+  if(!s?.activo) return null;
+  return {
+    dias:dayName(d),
+    servicio:s.servicio || p.servicio || "",
+    modalidad:s.modalidad || "Fijo",
+    hora_inicio:s.inicio || "",
+    hora_fin:s.fin || "",
+    rotativo_a_inicio:s.semana_a_inicio || "",
+    rotativo_a_fin:s.semana_a_fin || "",
+    rotativo_b_inicio:s.semana_b_inicio || "",
+    rotativo_b_fin:s.semana_b_fin || "",
+    fecha_base_rotacion:p.fecha_base_rotacion || ""
+  };
+}
 function assignmentWorks(a){
   const days=dayTokens(a.dias||"");
   const day=selectedDayKey();
   return !day || days.size===0 || days.has("todos") || days.has(day);
 }
 function matchingAssignments(p){
-  let asg = Array.isArray(p.asignaciones) && p.asignaciones.length ? p.asignaciones : [{
+  const date = parseDMY(state.planilla.fecha);
+  const weekly = scheduleForPersonDate(p,date);
+  if(weekly) return [weekly];
+  if(p.horario_semanal) return [];
+  const asg = Array.isArray(p.asignaciones) && p.asignaciones.length ? p.asignaciones : [{
     dias:p.dias, hora_inicio:p.hora_inicio, hora_fin:p.hora_fin, servicio:p.servicio, modalidad:p.modalidad,
     rotativo_a_inicio:p.rotativo_a_inicio, rotativo_a_fin:p.rotativo_a_fin, rotativo_b_inicio:p.rotativo_b_inicio, rotativo_b_fin:p.rotativo_b_fin, fecha_base_rotacion:p.fecha_base_rotacion
   }];
@@ -836,15 +1271,27 @@ function matchingAssignments(p){
 }
 function serviceForAssignment(a,p){ return a.servicio || p.servicio || ""; }
 function personMarks(p){ const m = matchingAssignments(p)[0]; return m ? marksForAssignment(m,p) : Array(12).fill(""); }
-function marksForAssignment(a,p){
+function rotativeWeekInfo(a,dateOverride=null){
+  const sel = dateOverride || parseDMY(state.planilla.fecha), base=parseDMY(a.fecha_base_rotacion);
+  if(!sel || !base) return {key:"A", range:[a.rotativo_a_inicio,a.rotativo_a_fin]};
+  const monday = d => addDays(d, -((d.getDay()+6)%7));
+  const weeks = Math.floor(diffDays(monday(sel),monday(base))/7);
+  return weeks%2===0 ? {key:"A",range:[a.rotativo_a_inicio,a.rotativo_a_fin]} : {key:"B",range:[a.rotativo_b_inicio,a.rotativo_b_fin]};
+}
+function assignmentRange(a,p,dateOverride=null){
   const service = serviceKey(serviceForAssignment(a,p));
-  if(service==="24hs" || service==="canes") return Array(12).fill("");
-  if(service==="rondin") return marksFromRange("22","07");
+  if(service === "24hs" || service === "canes") return {start:"07",end:"07",fullDay:true,week:""};
+  if(service === "rondin") return {start:"22",end:"07",fullDay:false,week:""};
   if(norm(a.modalidad||p.modalidad)==="rotativo semanal"){
-    const [ini,fin] = rotativeRange(a);
-    return marksFromRange(ini,fin);
+    const info = rotativeWeekInfo(a,dateOverride);
+    return {start:info.range[0],end:info.range[1],fullDay:false,week:info.key};
   }
-  return marksFromRange(a.hora_inicio||p.hora_inicio, a.hora_fin||p.hora_fin);
+  return {start:a.hora_inicio||p.hora_inicio,end:a.hora_fin||p.hora_fin,fullDay:false,week:""};
+}
+function marksForAssignment(a,p){
+  const range = assignmentRange(a,p);
+  if(range.fullDay) return Array(12).fill("");
+  return marksFromRange(range.start,range.end);
 }
 function parseHour(v){ const m=String(v||"").match(/\d{1,2}/); if(!m)return null; const h=Number(m[0]); if(h===24)return 0; return h>=0&&h<=23?h:null; }
 function axisHour(h){ return h>=7?h:h+24; }
@@ -858,13 +1305,7 @@ function marksFromRange(ini,fin){
     return first && second ? "X" : first ? "X/" : second ? "/X" : "";
   });
 }
-function rotativeRange(a){
-  const sel = parseDMY(state.planilla.fecha), base=parseDMY(a.fecha_base_rotacion);
-  if(!sel||!base) return [a.rotativo_a_inicio,a.rotativo_a_fin];
-  const monday = d => addDays(d, -((d.getDay()+6)%7));
-  const weeks = Math.floor(diffDays(monday(sel),monday(base))/7);
-  return weeks%2===0 ? [a.rotativo_a_inicio,a.rotativo_a_fin] : [a.rotativo_b_inicio,a.rotativo_b_fin];
-}
+function rotativeRange(a){ return rotativeWeekInfo(a).range; }
 function rotativo48Present(item,d,turno){
   if(!item.activo || !d) return false;
   const pair = item.turnos || [];
@@ -884,7 +1325,19 @@ function rotativo48Present(item,d,turno){
 function getPerson(name){ return state.personal.find(p=>norm(p.nombre)===norm(name)); }
 
 function bindDashboard(){
-  // No requiere bindings por ahora; se recalcula con renderAll().
+  const root = q("#dashboardContent");
+  root?.addEventListener("click",event=>{
+    const cell = event.target.closest("[data-period-date][data-period-key]");
+    if(!cell) return;
+    showPeriodPersonnel(cell.dataset.periodDate,cell.dataset.periodKey);
+  });
+  q("#btnClosePeriodModal")?.addEventListener("click",closePeriodPersonnelModal);
+  q("#periodPersonnelModal")?.addEventListener("click",event=>{
+    if(event.target.id === "periodPersonnelModal") closePeriodPersonnelModal();
+  });
+  document.addEventListener("keydown",event=>{
+    if(event.key === "Escape") closePeriodPersonnelModal();
+  });
 }
 function weekStart(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); return x; }
 function dashboardWeek(){
@@ -892,16 +1345,70 @@ function dashboardWeek(){
   const start = weekStart(base);
   return Array.from({length:7},(_,i)=>addDays(start,i));
 }
+function axisRange(startValue,endValue){
+  const sh=parseHour(startValue), eh=parseHour(endValue);
+  if(sh==null || eh==null) return null;
+  let start=axisHour(sh), end=axisHour(eh);
+  if(end<=start) end+=24;
+  return [start,end];
+}
+function rowPresentInPeriod(row,period){
+  if(row.full_day || ["24hs","canes"].includes(serviceKey(row.servicio))) return true;
+  const range=axisRange(row.range_start,row.range_end);
+  const pRange = period.key === "manana" ? [7,13] : period.key === "tarde" ? [13,21] : [22,31];
+  if(range) return range[0] < pRange[1] && range[1] > pRange[0];
+  return period.idx.some(i=>token(row.cells?.[i]));
+}
+function personnelForPeriod(rows,period){
+  const people=new Map();
+  (rows||[]).forEach(row=>{
+    if(/^rondin\d*$/i.test(String(row.nombre||"")) || serviceKey(row.servicio)==="rondin") return;
+    if(!rowPresentInPeriod(row,period)) return;
+    const key=norm(row.nombre);
+    const current=people.get(key);
+    if(current){
+      if(row.schedule_text && !current.schedule_text.includes(row.schedule_text)) current.schedule_text += ` · ${row.schedule_text}`;
+      return;
+    }
+    people.set(key,{...row});
+  });
+  return [...people.values()].sort((a,b)=>{
+    const rank=s=>serviceKey(s)==="24hs"?0:serviceKey(s)==="canes"?1:2;
+    return rank(a.servicio)-rank(b.servicio) || a.nombre.localeCompare(b.nombre);
+  });
+}
 function dailyOperationalData(d){
   const rows = rowsForDate(d);
   const detail = coverageDetail(rows);
   const periods = periodDefs().map(p=>{
     const score = periodScore(detail,p.idx);
     const avg = p.idx.map(i=>detail[i].value).reduce((a,b)=>a+b,0)/p.idx.length;
-    return {...p, score, avg};
+    const people = personnelForPeriod(rows,p);
+    return {...p, score, avg, peopleCount:people.length};
   });
   const totalScore = periods.reduce((a,b)=>a+b.score,0)/periods.length;
   return {date:d, rows, detail, periods, totalScore};
+}
+function showPeriodPersonnel(dateText,periodKey){
+  const d=parseDMY(dateText);
+  const period=periodDefs().find(p=>p.key===periodKey);
+  if(!d || !period) return;
+  const data=dailyOperationalData(d);
+  const people=personnelForPeriod(data.rows,period);
+  q("#periodModalTitle").textContent=`${dayName(d)} · ${period.label}`;
+  q("#periodModalSubtitle").textContent=`${formatDMY(d)} · ${period.range}`;
+  q("#periodModalSummary").innerHTML=`<strong>${people.length}</strong><span>${people.length===1?"centinela programado":"centinelas programados"}</span>`;
+  q("#periodModalBody").innerHTML=people.length ? people.map(person=>{
+    const service=person.servicio||"Sin servicio";
+    const schedule=person.schedule_text||(["24hs","canes"].includes(serviceKey(service))?"24 horas":"Horario cargado");
+    return `<div class="period-person-card"><div class="period-person-main"><strong>${esc(person.nombre)}</strong><span>${esc(schedule)}</span></div><span class="service-badge service-${serviceKey(service)}">${esc(service)}</span></div>`;
+  }).join("") : `<p class="empty-period">No hay personal programado en esta franja.</p>`;
+  q("#periodPersonnelModal").classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+function closePeriodPersonnelModal(){
+  q("#periodPersonnelModal")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
 }
 function renderDashboard(){
   const root = q("#dashboardContent");
@@ -925,7 +1432,7 @@ function renderDashboard(){
       <div class="metric-card"><div class="metric-title">Día más débil</div><div class="metric-value">${dayName(weakest.date)}</div><div>${formatDMY(weakest.date)}</div></div>
       <div class="metric-card"><div class="metric-title">Alertas críticas</div><div class="metric-value">${alerts.length}</div><div>según Deben haber cargado</div></div>
     </div>
-    <div class="card"><h2>Cobertura por día y franja</h2><div class="period-heatmap" id="periodHeatmap"></div></div>
+    <div class="card"><h2>Cobertura por día y franja</h2><p class="dashboard-instruction">Presioná una franja para ver todos los centinelas programados ese día y horario.</p><div class="period-heatmap" id="periodHeatmap"></div></div>
     <div class="card"><h2>Detalle por horario</h2><div class="table-scroll"><table class="data-table striped" id="weekHeatTable"></table></div></div>
     <div class="card"><h2>Ranking semanal</h2><div id="rankingBars"></div></div>
     <div class="card"><h2>Alertas</h2><div id="dashboardAlerts"></div></div>
@@ -934,7 +1441,7 @@ function renderDashboard(){
   const ph = q("#periodHeatmap");
   week.forEach(day=>{
     const row = document.createElement("div"); row.className="period-row";
-    row.innerHTML = `<div class="period-day">${dayName(day.date)}<small>${formatDMY(day.date)}</small></div>` + day.periods.map(p=>`<div class="period-cell ${coverageClass(p.score*7,7)}" style="background:hsl(${Math.round(p.score*120)} 78% ${86-Math.round(p.score*12)}%)"><strong>${p.label}</strong><span>${p.range}</span><em>${formatNum(Math.round(p.avg*10)/10)} prom.</em></div>`).join("");
+    row.innerHTML = `<div class="period-day">${dayName(day.date)}<small>${formatDMY(day.date)}</small></div>` + day.periods.map(p=>`<button type="button" class="period-cell ${coverageClass(p.score*7,7)}" data-period-date="${formatDMY(day.date)}" data-period-key="${p.key}" style="background:hsl(${Math.round(p.score*120)} 78% ${86-Math.round(p.score*12)}%)"><strong>${p.label}</strong><span>${p.range}</span><em>${p.peopleCount} centinelas · ${formatNum(Math.round(p.avg*10)/10)} prom.</em><small>Ver personal</small></button>`).join("");
     ph.append(row);
   });
   const table = q("#weekHeatTable");
@@ -970,73 +1477,330 @@ function renderDailyView(){
   const order = ["24hs","Canes","12hs","6hs","4hs","Diario","Rondin","Recargo","Sin servicio"];
   const serviceCards = order.filter(k=>groups[k]).map(k=>`<div class="service-card"><h3>${k}</h3>${groups[k].map(r=>`<div class="service-person ${r.recargo?'recargo-name':''}">${esc(r.nombre)} <small>${formatNum(tiros(r))} tiros</small></div>`).join("")}</div>`).join("");
   const term = norm(q("#quickSearch")?.value || "");
-  const matches = term ? state.personal.filter(p=>norm([p.nombre,p.jerarquia,p.legajo,p.servicio,p.dias,p.observaciones,p.situacion,...(p.ausencias||[]).map(absenceLabel)].join(" ")).includes(term)).slice(0,20) : [];
+  const matches = term ? state.personal.filter(p=>norm([p.nombre,p.jerarquia,p.legajo,p.servicio,p.observaciones,p.situacion,personScheduleSearchText(p),...(p.ausencias||[]).map(absenceLabel)].join(" ")).includes(term)).slice(0,20) : [];
   q("#dailyServices").innerHTML = serviceCards || `<p>No hay filas cargadas. Usá “Cargar personal del día”.</p>`;
   q("#searchResults").innerHTML = !term ? "" : (matches.length ? matches.map(p=>{
     const active = activeAbsences(p).map(absenceLabel).join(" · ");
-    return `<div class="search-hit"><strong>${esc(p.nombre)}</strong><span>${esc(p.jerarquia||"")}${p.legajo?" · Legajo "+esc(p.legajo):""} · ${esc(p.servicio||"")} · ${esc(p.dias||"")} · ${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}${p.situacion?" · "+esc(p.situacion):""} · ${esc(p.estado||"Activo")}${active?" · LICENCIA: "+esc(active):""}</span></div>`;
+    return `<div class="search-hit"><strong>${esc(p.nombre)}</strong><span>${esc(p.jerarquia||"")}${p.legajo?" · Legajo "+esc(p.legajo):""} · ${esc(p.servicio||"")} · ${esc(personSchedulePlainText(p))}${p.situacion?" · "+esc(p.situacion):""} · ${esc(p.estado||"Activo")}${active?" · LICENCIA: "+esc(active):""}</span></div>`;
   }).join("") : `<p>Sin resultados.</p>`);
   renderFatigueInto(q("#dailyFatigue"), rows);
 }
 
+function hourSelectHtml(value="",className=""){
+  const options=[`<option value=""></option>`];
+  for(let i=0;i<24;i++) options.push(`<option value="${pad(i)}" ${String(value)===pad(i)?"selected":""}>${pad(i)}:00</option>`);
+  return `<select class="${className}">${options.join("")}</select>`;
+}
+function serviceSelectHtml(value="",className=""){
+  return `<select class="${className}">${SERVICES.map(s=>`<option value="${s}" ${s===value?"selected":""}>${s}</option>`).join("")}</select>`;
+}
+function schedulePeriodClass(schedule){
+  const start = schedule.modalidad === "Rotativo semanal" ? schedule.semana_a_inicio : schedule.inicio;
+  const h=parseHour(start);
+  if(h==null) return "schedule-neutral";
+  if(h>=7 && h<13) return "schedule-morning";
+  if(h>=13 && h<22) return "schedule-afternoon";
+  return "schedule-night";
+}
+function scheduleText(schedule,compact=false){
+  if(!schedule?.activo) return "No trabaja";
+  if(serviceKey(schedule.servicio)==="24hs" || serviceKey(schedule.servicio)==="canes") return `${schedule.servicio} · 24 horas`;
+  if(schedule.modalidad === "Rotativo semanal"){
+    const a=`A ${formatTime(schedule.semana_a_inicio)}–${formatTime(schedule.semana_a_fin)}`;
+    const b=`B ${formatTime(schedule.semana_b_inicio)}–${formatTime(schedule.semana_b_fin)}`;
+    return compact ? `${a} / ${b}` : `Rotativo · ${a} · ${b}`;
+  }
+  return `${formatTime(schedule.inicio)}–${formatTime(schedule.fin)}`;
+}
+function personSchedulePlainText(p){
+  const items=WEEK_DAYS.flatMap(day=>{
+    const s=p.horario_semanal?.[day.key];
+    return s?.activo ? [`${day.label}: ${scheduleText(s)}`] : [];
+  });
+  return items.length ? items.join("; ") : "Sin horario diario";
+}
+function personScheduleSearchText(p){ return personSchedulePlainText(p); }
+function weeklyScheduleHtml(p){
+  const chips=WEEK_DAYS.flatMap(day=>{
+    const s=p.horario_semanal?.[day.key];
+    if(!s?.activo) return [];
+    return [`<div class="week-chip ${schedulePeriodClass(s)} ${s.modalidad==="Rotativo semanal"?"schedule-rotative":""}"><strong>${day.short}</strong><span>${esc(scheduleText(s,true))}</span><small>${esc(s.servicio||p.servicio||"")}</small></div>`];
+  });
+  return chips.length ? `<div class="week-chip-grid">${chips.join("")}</div>` : `<span class="no-schedule">Sin horario diario</span>`;
+}
+function renderWeeklyScheduleEditor(schedule=null){
+  const weekly=schedule || Object.fromEntries(WEEK_DAYS.map(d=>[d.key,emptyDaySchedule(q("#personService")?.value||"Diario")]));
+  const table=q("#weeklyScheduleEditor");
+  table.innerHTML=`<thead><tr><th>Trabaja</th><th>Día</th><th>Servicio</th><th>Modalidad</th><th>Inicio / Semana A</th><th>Fin / Semana A</th><th>Inicio Semana B</th><th>Fin Semana B</th></tr></thead><tbody></tbody>`;
+  const body=table.querySelector("tbody");
+  WEEK_DAYS.forEach(day=>{
+    const s=normalizeDaySchedule(weekly[day.key],q("#personService")?.value||"Diario");
+    const tr=document.createElement("tr");
+    tr.dataset.day=day.key;
+    tr.className=s.activo?"schedule-row active":"schedule-row";
+    tr.innerHTML=`
+      <td class="schedule-toggle-cell"><input type="checkbox" class="schedule-active" ${s.activo?"checked":""} aria-label="Trabaja el ${day.label}"></td>
+      <td class="schedule-day"><strong>${day.label}</strong><span class="schedule-inline-preview"></span></td>
+      <td>${serviceSelectHtml(s.servicio,"schedule-service")}</td>
+      <td><select class="schedule-mode"><option value="Fijo" ${s.modalidad==="Fijo"?"selected":""}>Fijo</option><option value="Rotativo semanal" ${s.modalidad==="Rotativo semanal"?"selected":""}>Rotativo semanal</option></select></td>
+      <td>${hourSelectHtml(s.modalidad==="Fijo"?s.inicio:s.semana_a_inicio,"schedule-start-a")}</td>
+      <td>${hourSelectHtml(s.modalidad==="Fijo"?s.fin:s.semana_a_fin,"schedule-end-a")}</td>
+      <td class="week-b-cell">${hourSelectHtml(s.semana_b_inicio,"schedule-start-b")}</td>
+      <td class="week-b-cell">${hourSelectHtml(s.semana_b_fin,"schedule-end-b")}</td>`;
+    body.append(tr);
+  });
+  table.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{
+    updateWeeklyEditorVisuals();
+    renderWeeklyPreviewFromEditor();
+  }));
+  updateWeeklyEditorVisuals();
+  renderWeeklyPreviewFromEditor();
+}
+function updateWeeklyEditorVisuals(){
+  q("#weeklyScheduleEditor")?.querySelectorAll(".schedule-row").forEach(row=>{
+    const active=row.querySelector(".schedule-active").checked;
+    const rot=row.querySelector(".schedule-mode").value==="Rotativo semanal";
+    row.classList.toggle("active",active);
+    row.classList.toggle("rotative",rot);
+    row.querySelectorAll("select:not(.schedule-mode), .schedule-mode").forEach(el=>el.disabled=!active);
+    row.querySelectorAll(".week-b-cell select").forEach(el=>el.disabled=!active||!rot);
+    const s=readScheduleRow(row);
+    row.querySelector(".schedule-inline-preview").textContent=active?scheduleText(s,true):"No trabaja";
+  });
+}
+function readScheduleRow(row){
+  const active=row.querySelector(".schedule-active").checked;
+  const mode=row.querySelector(".schedule-mode").value;
+  const startA=row.querySelector(".schedule-start-a").value;
+  const endA=row.querySelector(".schedule-end-a").value;
+  return normalizeDaySchedule({
+    activo:active,
+    servicio:row.querySelector(".schedule-service").value,
+    modalidad:mode,
+    inicio:mode==="Fijo"?startA:"",
+    fin:mode==="Fijo"?endA:"",
+    semana_a_inicio:mode==="Rotativo semanal"?startA:"",
+    semana_a_fin:mode==="Rotativo semanal"?endA:"",
+    semana_b_inicio:row.querySelector(".schedule-start-b").value,
+    semana_b_fin:row.querySelector(".schedule-end-b").value
+  });
+}
+function readWeeklyScheduleEditor(){
+  const weekly={};
+  q("#weeklyScheduleEditor").querySelectorAll(".schedule-row").forEach(row=>weekly[row.dataset.day]=readScheduleRow(row));
+  return weekly;
+}
+function renderWeeklyPreviewFromEditor(){
+  const root=q("#weeklySchedulePreview");
+  if(!root || !q("#weeklyScheduleEditor")?.querySelector("tbody")) return;
+  const weekly=readWeeklyScheduleEditor();
+  const chips=WEEK_DAYS.map(day=>{
+    const s=weekly[day.key];
+    return `<div class="preview-day ${s.activo?schedulePeriodClass(s):"off"} ${s.modalidad==="Rotativo semanal"?"schedule-rotative":""}"><strong>${day.short}</strong><span>${esc(s.activo?scheduleText(s,true):"Libre")}</span><small>${s.activo?esc(s.servicio):""}</small></div>`;
+  }).join("");
+  root.innerHTML=`<div class="preview-title">Vista semanal</div><div class="preview-week-grid">${chips}</div>`;
+}
+function validateWeeklySchedule(weekly){
+  return validateWeeklyScheduleDetailed(weekly,"Personal",isoToDMY(q("#rotBase")?.value||"")).join("\n");
+}
 function bindPersonal(){
+  q("#personService").value = "Diario";
   q("#btnSavePerson").onclick = savePerson;
   q("#btnNewPerson").onclick = clearPersonForm;
+  q("#btnPersonalBackupNow").onclick = createPersonalBackupNow;
+  q("#btnEnableWeekdays").onclick=()=>{
+    q("#weeklyScheduleEditor").querySelectorAll(".schedule-row").forEach((row,i)=>{ if(i<5) row.querySelector(".schedule-active").checked=true; });
+    updateWeeklyEditorVisuals(); renderWeeklyPreviewFromEditor();
+  };
+  q("#btnCopyMonday").onclick=()=>{
+    const rows=[...q("#weeklyScheduleEditor").querySelectorAll(".schedule-row")];
+    const source=readScheduleRow(rows[0]);
+    renderWeeklyScheduleEditor(Object.fromEntries(WEEK_DAYS.map((day,i)=>[day.key,i<5?{...source,activo:true}:readScheduleRow(rows[i])])));
+  };
+  q("#btnClearWeek").onclick=()=>renderWeeklyScheduleEditor();
+  q("#personService").addEventListener("change",()=>{
+    q("#weeklyScheduleEditor").querySelectorAll(".schedule-row:not(.active) .schedule-service").forEach(el=>el.value=q("#personService").value);
+  });
+  renderWeeklyScheduleEditor();
 }
 function renderPersonal(){
   const table = q("#personalTable");
-  table.innerHTML = `<tr><th>Nombre</th><th>Jerarquía</th><th>Legajo</th><th>Servicio</th><th>Estado</th><th>Licencia vigente</th><th>Días</th><th>Horario</th><th>Observaciones</th></tr>`;
+  table.innerHTML = `<tr><th>Personal</th><th>Estado / licencia</th><th>Horario semanal</th><th>Observaciones</th></tr>`;
   state.personal.forEach((p,i)=>{
     const tr=document.createElement("tr");
     if(norm(p.estado)==="inactivo") tr.classList.add("inactive-row");
     const obs = [p.situacion,p.observaciones].filter(Boolean).join(" · ");
     const license = activeAbsences(p).map(absenceLabel).join(" · ");
-    tr.innerHTML = `<td>${esc(p.nombre)}</td><td>${esc(p.jerarquia||"")}</td><td>${esc(p.legajo||"")}</td><td>${esc(p.servicio)}</td><td>${esc(p.estado||"Activo")}</td><td>${license?`<span class="license-badge">${esc(license)}</span>`:""}</td><td>${esc(p.dias||"")}</td><td>${esc((p.hora_inicio||"")+" a "+(p.hora_fin||""))}</td><td>${esc(obs)}</td>`;
+    tr.innerHTML = `<td class="person-id-cell"><strong>${esc(p.nombre)}</strong><span>${esc(p.jerarquia||"")}${p.legajo?` · Legajo ${esc(p.legajo)}`:""}</span></td><td><strong>${esc(p.estado||"Activo")}</strong>${license?`<br><span class="license-badge">${esc(license)}</span>`:""}</td><td class="weekly-summary-cell">${weeklyScheduleHtml(p)}</td><td>${esc(obs)}</td>`;
     tr.onclick=()=>loadPersonForm(i);
     table.append(tr);
   });
+  renderPersonalBackups();
 }
 function loadPersonForm(i){
-  const p=state.personal[i]; q("#personName").value=p.nombre||""; q("#personHierarchy").value=p.jerarquia||""; q("#personLegajo").value=p.legajo||""; q("#personSituation").value=p.situacion||""; q("#personObservations").value=p.observaciones||""; q("#personService").value=p.servicio||"24hs"; q("#personState").value=p.estado||"Activo";
-  q("#personDays").value=p.dias||""; q("#personStart").value=p.hora_inicio||""; q("#personEnd").value=p.hora_fin||""; q("#personTurno").value=p.turno_24||"";
-  q("#personMode").value=p.modalidad||"Fijo"; q("#rotAStart").value=p.rotativo_a_inicio||""; q("#rotAEnd").value=p.rotativo_a_fin||"";
-  q("#rotBStart").value=p.rotativo_b_inicio||""; q("#rotBEnd").value=p.rotativo_b_fin||""; q("#rotBase").value=dmyToISO(p.fecha_base_rotacion||"");
+  selectedPersonIndex=i;
+  const p=state.personal[i];
+  q("#personName").value=p.nombre||"";
+  q("#personHierarchy").value=p.jerarquia||"";
+  q("#personLegajo").value=p.legajo||"";
+  q("#personSituation").value=p.situacion||"";
+  q("#personObservations").value=p.observaciones||"";
+  q("#personService").value=p.servicio||"Diario";
+  q("#personState").value=p.estado||"Activo";
+  q("#personTurno").value=p.turno_24||"";
+  q("#rotBase").value=dmyToISO(p.fecha_base_rotacion||"");
+  renderWeeklyScheduleEditor(p.horario_semanal);
+  q("#personName").scrollIntoView({behavior:"smooth",block:"center"});
 }
-function clearPersonForm(){ ["personName","personHierarchy","personLegajo","personSituation","personObservations","personDays","personStart","personEnd","personTurno","rotAStart","rotAEnd","rotBStart","rotBEnd","rotBase"].forEach(id=>q("#"+id).value=""); q("#personService").value="24hs"; q("#personState").value="Activo"; q("#personMode").value="Fijo"; }
+function clearPersonForm(){
+  selectedPersonIndex=null;
+  ["personName","personHierarchy","personLegajo","personSituation","personObservations","personTurno","rotBase"].forEach(id=>q("#"+id).value="");
+  q("#personService").value="Diario";
+  q("#personState").value="Activo";
+  renderWeeklyScheduleEditor();
+}
 function savePerson(){
-  const name=toTitleName(cleanName(q("#personName").value.trim())); if(!name) return alert("Ingresá un nombre.");
-  const idx=state.personal.findIndex(x=>norm(x.nombre)===norm(name));
-  const existing=idx>=0 ? state.personal[idx] : null;
-  const p = {
+  const name=toTitleName(cleanName(q("#personName").value.trim()));
+  const weekly=readWeeklyScheduleEditor();
+  const existing=selectedPersonIndex!=null ? state.personal[selectedPersonIndex] : null;
+  const p = normalizePersonRecord({
     nombre:name,
     jerarquia:q("#personHierarchy").value.trim(),
     legajo:q("#personLegajo").value.trim(),
     situacion:q("#personSituation").value.trim(),
     observaciones:q("#personObservations").value.trim(),
-    servicio:q("#personService").value, estado:q("#personState").value, dias:q("#personDays").value,
-    hora_inicio:q("#personStart").value, hora_fin:q("#personEnd").value, turno_24:q("#personTurno").value,
-    modalidad:q("#personMode").value, rotativo_a_inicio:q("#rotAStart").value, rotativo_a_fin:q("#rotAEnd").value,
-    rotativo_b_inicio:q("#rotBStart").value, rotativo_b_fin:q("#rotBEnd").value, fecha_base_rotacion:isoToDMY(q("#rotBase").value),
-    ausencias: existing?.ausencias || []
-  };
-  const scheduleKeys=["servicio","dias","hora_inicio","hora_fin","modalidad","rotativo_a_inicio","rotativo_a_fin","rotativo_b_inicio","rotativo_b_fin","fecha_base_rotacion"];
-  const scheduleUnchanged = existing && scheduleKeys.every(k=>String(existing[k]||"")===String(p[k]||""));
-  p.asignaciones = scheduleUnchanged && Array.isArray(existing.asignaciones)
-    ? clone(existing.asignaciones)
-    : [{dias:p.dias,hora_inicio:p.hora_inicio,hora_fin:p.hora_fin,servicio:p.servicio,modalidad:p.modalidad,rotativo_a_inicio:p.rotativo_a_inicio,rotativo_a_fin:p.rotativo_a_fin,rotativo_b_inicio:p.rotativo_b_inicio,rotativo_b_fin:p.rotativo_b_fin,fecha_base_rotacion:p.fecha_base_rotacion,observaciones:p.observaciones}];
-  if(idx>=0) state.personal[idx]=normalizePersonRecord(p); else state.personal.push(normalizePersonRecord(p));
+    servicio:q("#personService").value,
+    estado:q("#personState").value,
+    turno_24:q("#personTurno").value,
+    fecha_base_rotacion:isoToDMY(q("#rotBase").value),
+    horario_semanal:weekly,
+    ausencias:existing?.ausencias || [],
+    operational_only:existing?.operational_only || false
+  });
+  const errors=validatePersonRecordDetailed(p,selectedPersonIndex??state.personal.length);
+  const duplicateIndex=state.personal.findIndex((x,i)=>i!==selectedPersonIndex && norm(x.nombre)===norm(name));
+  if(duplicateIndex>=0) errors.unshift(`${name} ya existe en la nómina.`);
+  if(showValidationErrors(errors,"No se pudo guardar el personal")) return;
+  if(selectedPersonIndex!=null) state.personal[selectedPersonIndex]=p; else state.personal.push(p);
   state.personal.sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  save({action:"Actualizar personal"}); renderAll(); clearPersonForm();
+  save({action:"Actualizar horario semanal del personal"});
+  renderAll();
+  clearPersonForm();
 }
 
+function createPersonalBackupNow(){
+  const errors=validateMasterData();
+  if(showValidationErrors(errors,"Corregí el personal antes de crear el backup")) return;
+  state.personal_backups ||= [];
+  const backup={
+    id:`personal-backup-${Date.now()}`,
+    at:new Date().toISOString(),
+    data:{personal:clone(state.personal),turnos:clone(state.turnos)}
+  };
+  state.personal_backups.unshift(backup);
+  state.personal_backups=state.personal_backups.slice(0,MAX_PERSONAL_BACKUPS);
+  state.personal_backups_updated_at=new Date().toISOString();
+  pushHistory("Crear backup del personal");
+  save({silent:true,skipPlanillaDraft:true});
+  renderPersonalBackups();
+  alert("Backup del personal creado. Se conservarán como máximo 5.");
+}
+function restorePersonalBackup(id){
+  const backup=(state.personal_backups||[]).find(b=>b.id===id);
+  if(!backup) return alert("El backup ya no existe.");
+  const candidatePersonal=(backup.data?.personal||[]).map(normalizePersonRecord);
+  const candidateTurnos=normalizeTurnos(clone(backup.data?.turnos||{}));
+  const errors=[...validatePersonalCatalog(candidatePersonal),...validateTurnosData(candidateTurnos)];
+  if(showValidationErrors(errors,"El backup no puede restaurarse")) return;
+  const when=new Date(backup.at).toLocaleString();
+  if(!confirm(`¿Restaurar el personal del backup realizado el ${when}? Se creará una copia de seguridad del estado actual.`)) return;
+  const safety={id:`personal-backup-${Date.now()}`,at:new Date().toISOString(),data:{personal:clone(state.personal),turnos:clone(state.turnos)}};
+  state.personal=candidatePersonal;
+  state.turnos=candidateTurnos;
+  state.personal_backups=[safety,...(state.personal_backups||[]).filter(b=>b.id!==safety.id)].slice(0,MAX_PERSONAL_BACKUPS);
+  state.personal_backups_updated_at=new Date().toISOString();
+  selectedPersonIndex=null;
+  pushHistory("Restaurar backup del personal");
+  save({silent:true,skipPlanillaDraft:true});
+  clearPersonForm();
+  renderAll();
+  alert("Backup del personal restaurado.");
+}
+function deletePersonalBackup(id){
+  const backup=(state.personal_backups||[]).find(b=>b.id===id);
+  if(!backup) return;
+  if(!confirm(`¿Borrar el backup del ${new Date(backup.at).toLocaleString()}?`)) return;
+  state.personal_backups=state.personal_backups.filter(b=>b.id!==id);
+  state.personal_backups_updated_at=new Date().toISOString();
+  pushHistory("Eliminar backup del personal");
+  save({silent:true,skipPlanillaDraft:true});
+  renderPersonalBackups();
+}
+function renderPersonalBackups(){
+  const table=q("#personalBackupTable");
+  if(!table) return;
+  const list=(state.personal_backups||[]).slice(0,MAX_PERSONAL_BACKUPS);
+  table.innerHTML=`<tr><th>Fecha del backup</th><th>Contenido</th><th>Acciones</th></tr>`;
+  if(!list.length){
+    table.innerHTML+=`<tr><td colspan="3" class="empty-cell">No hay backups del personal.</td></tr>`;
+    return;
+  }
+  list.forEach(backup=>{
+    const count=backup.data?.personal?.length||0;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><strong>${esc(new Date(backup.at).toLocaleString())}</strong></td><td>${count} personas · incluye horarios, licencias, turnos y Canes</td><td class="backup-actions"><button data-pb-act="restore" data-pb-id="${backup.id}" class="primary">Restaurar</button><button data-pb-act="download" data-pb-id="${backup.id}">JSON</button><button data-pb-act="delete" data-pb-id="${backup.id}" class="danger">Borrar</button></td>`;
+    table.append(tr);
+  });
+  table.querySelectorAll("button[data-pb-act]").forEach(button=>button.onclick=()=>{
+    const id=button.dataset.pbId, action=button.dataset.pbAct;
+    if(action==="restore") restorePersonalBackup(id);
+    if(action==="delete") deletePersonalBackup(id);
+    if(action==="download"){
+      const backup=(state.personal_backups||[]).find(b=>b.id===id);
+      if(backup) downloadJson(`${id}.json`,backup.data);
+    }
+  });
+}
+
+function operationalNameConflict(name, options={}){
+  const key=norm(name);
+  const matches=[];
+  for(const turno of TURNO_SEQ){
+    (state.turnos.turnos_24?.[turno]||[]).forEach((n,i)=>{
+      if(norm(n)===key && !(options.type==="fixed"&&options.turno===turno&&options.index===i)) matches.push(`turno fijo ${turno}`);
+    });
+    const canes=state.turnos.canes_por_turno?.[turno];
+    if(canes && norm(canes)===key && !(options.type==="canes"&&options.turno===turno)) matches.push(`Canes ${turno}`);
+  }
+  (state.turnos.rotativos_48||[]).forEach((r,i)=>{
+    if(norm(r.nombre)===key && !(options.type==="rot48"&&options.index===i)) matches.push("rotativo 48 h");
+  });
+  return matches;
+}
 function bindTurnos(){
   q("#btnUseTurno").onclick=()=>{ state.planilla.turno=selectedTurnoAdmin; save(); renderPlanilla(); document.querySelector('[data-tab="planilla"]').click(); };
-  q("#btnAddTurnoPerson").onclick=()=>{ const n=toTitleName(cleanName(q("#turnoPersonInput").value.trim())); if(!n)return; const arr=state.turnos.turnos_24[selectedTurnoAdmin] ||= []; if(!arr.some(x=>norm(cleanName(x))===norm(n))) arr.push(n); save(); renderTurnos(); };
-  q("#btnUpdateTurnoPerson").onclick=()=>{ if(selectedFixedIndex==null)return; const n=toTitleName(cleanName(q("#turnoPersonInput").value.trim())); if(!n)return; state.turnos.turnos_24[selectedTurnoAdmin][selectedFixedIndex]=n; save(); renderTurnos(); };
-  q("#btnRemoveTurnoPerson").onclick=()=>{ if(selectedFixedIndex==null)return; state.turnos.turnos_24[selectedTurnoAdmin].splice(selectedFixedIndex,1); selectedFixedIndex=null; save(); renderTurnos(); };
-  q("#btnSaveCanes").onclick=()=>{ state.turnos.canes_por_turno[selectedTurnoAdmin]=toTitleName(cleanName(q("#canesInput").value.trim())); save(); renderTurnos(); };
+  q("#btnAddTurnoPerson").onclick=()=>{
+    const n=toTitleName(cleanName(q("#turnoPersonInput").value.trim())); if(!n)return;
+    const conflicts=operationalNameConflict(n);
+    if(conflicts.length) return showValidationErrors([`${n} ya figura como ${conflicts.join(", ")}.`],"Personal repetido");
+    (state.turnos.turnos_24[selectedTurnoAdmin] ||= []).push(n); save({action:"Agregar personal a turno fijo"}); renderTurnos();
+  };
+  q("#btnUpdateTurnoPerson").onclick=()=>{
+    if(selectedFixedIndex==null)return;
+    const n=toTitleName(cleanName(q("#turnoPersonInput").value.trim())); if(!n)return;
+    const conflicts=operationalNameConflict(n,{type:"fixed",turno:selectedTurnoAdmin,index:selectedFixedIndex});
+    if(conflicts.length) return showValidationErrors([`${n} ya figura como ${conflicts.join(", ")}.`],"Personal repetido");
+    state.turnos.turnos_24[selectedTurnoAdmin][selectedFixedIndex]=n; save({action:"Modificar personal de turno fijo"}); renderTurnos();
+  };
+  q("#btnRemoveTurnoPerson").onclick=()=>{ if(selectedFixedIndex==null)return; state.turnos.turnos_24[selectedTurnoAdmin].splice(selectedFixedIndex,1); selectedFixedIndex=null; save({action:"Quitar personal de turno fijo"}); renderTurnos(); };
+  q("#btnSaveCanes").onclick=()=>{
+    const name=toTitleName(cleanName(q("#canesInput").value.trim()));
+    const conflicts=name?operationalNameConflict(name,{type:"canes",turno:selectedTurnoAdmin}):[];
+    if(conflicts.length) return showValidationErrors([`${name} ya figura como ${conflicts.join(", ")}.`],"Personal repetido");
+    state.turnos.canes_por_turno[selectedTurnoAdmin]=name; save({action:"Actualizar Canes"}); renderTurnos();
+  };
   q("#btnSaveRot48").onclick=saveRot48;
-  q("#btnRemoveRot48").onclick=()=>{ if(selectedRot48Index==null)return; state.turnos.rotativos_48.splice(selectedRot48Index,1); selectedRot48Index=null; save(); renderTurnos(); };
+  q("#btnRemoveRot48").onclick=()=>{ if(selectedRot48Index==null)return; state.turnos.rotativos_48.splice(selectedRot48Index,1); selectedRot48Index=null; save({action:"Quitar rotativo 48 h"}); renderTurnos(); };
 }
 function renderTurnos(){
   const pills=q("#turnoPills"); pills.innerHTML="";
@@ -1063,11 +1827,16 @@ function renderRot48(){
   });
 }
 function saveRot48(){
-  const name=toTitleName(cleanName(q("#rot48Name").value.trim())); if(!name)return alert("Nombre requerido.");
-  if(!parseAnyDate(q("#rot48Date").value)) return alert("Fecha presente inválida.");
+  const name=toTitleName(cleanName(q("#rot48Name").value.trim()));
+  const errors=[];
+  if(!name) errors.push("Nombre requerido para el rotativo 48 h.");
+  if(!parseAnyDate(q("#rot48Date").value)) errors.push("Fecha presente inválida.");
+  const conflicts=name?operationalNameConflict(name,{type:"rot48",index:selectedRot48Index}):[];
+  if(conflicts.length) errors.push(`${name} ya figura como ${conflicts.join(", ")}.`);
+  if(showValidationErrors(errors,"No se pudo guardar el rotativo")) return;
   const item={nombre:name, turnos:q("#rot48Pair").value.split("-"), fecha_presente:isoToDMY(q("#rot48Date").value), activo:q("#rot48Active").value==="true"};
   if(selectedRot48Index!=null) state.turnos.rotativos_48[selectedRot48Index]=item; else state.turnos.rotativos_48.push(item);
-  selectedRot48Index=null; save(); renderTurnos();
+  selectedRot48Index=null; save({action:"Actualizar rotativo 48 h"}); renderTurnos();
 }
 function renderTurnoPreview(){
   const d=parseDMY(state.planilla.fecha), turno=selectedTurnoAdmin;
@@ -1136,10 +1905,13 @@ function saveAbsence(){
   const articulo = q("#absenceArticle").value.trim();
   const fromDate = parseAnyDate(q("#absenceFrom").value);
   const toDate = parseAnyDate(q("#absenceTo").value);
-  if(!fromDate) return alert("Indicá la fecha de inicio.");
-  if(tipo === "Art 214" && !toDate) return alert("El Art. 214 requiere fecha de finalización.");
-  if(tipo === "Carpeta Medica" && !articulo) return alert("Indicá el artículo o motivo de la Carpeta Médica.");
-  if(toDate && toDate < fromDate) return alert("La fecha de fin no puede ser anterior a la fecha de inicio.");
+  const errors=[];
+  if(!fromDate) errors.push("Indicá una fecha de inicio válida.");
+  if(tipo === "Art 214" && !toDate) errors.push("El Art. 214 requiere una fecha de finalización válida.");
+  if(tipo === "Carpeta Medica" && !articulo) errors.push("Indicá el artículo o motivo de la Carpeta Médica.");
+  if(toDate && fromDate && toDate < fromDate) errors.push("La fecha de fin no puede ser anterior a la fecha de inicio.");
+  if(!isReadableText([articulo,q("#absenceNotes").value].join(" "))) errors.push("La licencia contiene caracteres ilegibles o inválidos.");
+  if(showValidationErrors(errors,"No se pudo guardar la licencia")) return;
 
   const record = normalizeAbsenceRecord({
     id: selectedAbsence?.id,
@@ -1209,13 +1981,14 @@ function bindDatos(){
   q("#importFile").onchange=e=>{
     const file=e.target.files[0]; if(!file)return;
     const reader=new FileReader();
-    reader.onload=()=>{ 
-      try{ 
+    reader.onload=()=>{
+      const previousState=clone(state);
+      try{
         const data=JSON.parse(reader.result);
         if(Array.isArray(data)){
           state.personal = data.map(normalizePersonRecord);
         }else if(data.personal && data.turnos){
-          const preserved = {history:state.history||[], backups:state.backups||[], undoStack:state.undoStack||[], backup_settings:state.backup_settings};
+          const preserved = {history:state.history||[], backups:state.backups||[], personal_backups:state.personal_backups||[], personal_backups_updated_at:state.personal_backups_updated_at||"", last_planilla_draft:state.last_planilla_draft||null, undoStack:state.undoStack||[], backup_settings:state.backup_settings};
           state = {...data, ...preserved};
           state.personal = (state.personal||[]).map(normalizePersonRecord);
           state.turnos = normalizeTurnos(state.turnos || {});
@@ -1224,8 +1997,18 @@ function bindDatos(){
         }else{
           throw new Error("Formato no reconocido");
         }
-        save({action:"Importar JSON"}); renderAll(); alert("Datos importados.");
-      }catch(err){ alert("Archivo inválido: " + err.message); } 
+        normalizeLoadedState();
+        const importErrors=validateAllData();
+        if(importErrors.length) throw new Error("El archivo contiene datos conflictivos:\n- "+importErrors.slice(0,12).join("\n- "));
+        save({action:"Importar JSON"}); renderAll(); alert("Datos importados y validados.");
+      }catch(err){
+        state=previousState;
+        normalizeLoadedState();
+        lastPlanillaSnapshot=JSON.stringify(state.planilla);
+        lastContentSnapshot=contentSnapshot();
+        renderAll();
+        alert("Archivo inválido: " + err.message);
+      }
     };
     reader.readAsText(file);
   };

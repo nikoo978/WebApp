@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Shift Manager WebN9.1</title>
+  <title>Shift Manager WebN11</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <meta name="theme-color" content="#315a9f">
@@ -37,6 +37,8 @@
         <button id="btnAddRow">Agregar fila</button>
         <button id="btnSaveAll" class="primary">Guardar</button>
         <button id="btnLoadDay" class="primary">Cargar personal del día</button>
+        <button id="btnRecoverLastTable" class="secondary">Recuperar última tabla</button>
+        <button id="btnValidateData">Validar datos</button>
         <button id="btnSort">Ordenar por servicio</button>
         <button id="btnClear">Limpiar filas</button>
         <button id="btnExportJpg">Exportar JPG</button>
@@ -57,7 +59,8 @@
       </div>
 
       <div class="hint">
-        Toque/click en celda: vacío → X → X/ → /X → vacío. En pantalla táctil: mantener presionado coloca H. Con mouse: Ctrl + click coloca H.
+        <div>Toque/click en celda: vacío → X → X/ → /X → vacío. En pantalla táctil: mantener presionado coloca H. Con mouse: Ctrl + click coloca H.</div>
+        <div class="session-table-note">Al refrescar, la planilla vuelve limpia al día actual. <strong id="lastDraftInfo"></strong></div>
       </div>
 
       <div class="sheet-wrap">
@@ -91,31 +94,56 @@
     </section>
 
     <section id="tab-personal" class="panel">
-      <div class="form-grid card">
-        <label>Nombre <input id="personName" type="text"></label>
-        <label>Jerarquía <input id="personHierarchy" type="text"></label>
-        <label>Legajo <input id="personLegajo" type="text" inputmode="numeric"></label>
-        <label>Situación <input id="personSituation" type="text" placeholder="Ej.: ART"></label>
-        <label>Observaciones <input id="personObservations" type="text"></label>
-        <label>Servicio <select id="personService"></select></label>
-        <label>Estado <select id="personState"><option>Activo</option><option>Inactivo</option></select></label>
-        <label>Días <input id="personDays" type="text" placeholder="lunes a viernes"></label>
-        <label>Hora inicio <select id="personStart"></select></label>
-        <label>Hora fin <select id="personEnd"></select></label>
-        <label>Turno 24 <select id="personTurno"></select></label>
-        <label>Modalidad <select id="personMode"><option>Fijo</option><option>Rotativo semanal</option></select></label>
-        <label>Semana A (base/presente) inicio <select id="rotAStart"></select></label>
-        <label>Semana A (base/presente) fin <select id="rotAEnd"></select></label>
-        <label>Semana B (alterna) inicio <select id="rotBStart"></select></label>
-        <label>Semana B (alterna) fin <select id="rotBEnd"></select></label>
-        <label>Fecha base Semana A <input id="rotBase" type="date"></label>
-        <div class="actions">
+      <div class="card personal-editor-card">
+        <h2>Datos del personal</h2>
+        <div class="form-grid personal-main-fields">
+          <label>Nombre <input id="personName" type="text"></label>
+          <label>Jerarquía <input id="personHierarchy" type="text"></label>
+          <label>Legajo <input id="personLegajo" type="text" inputmode="numeric"></label>
+          <label>Situación <input id="personSituation" type="text" placeholder="Ej.: ART"></label>
+          <label>Observaciones <input id="personObservations" type="text"></label>
+          <label>Servicio predeterminado <select id="personService"></select></label>
+          <label>Estado <select id="personState"><option>Activo</option><option>Inactivo</option></select></label>
+          <label>Turno 24 vinculado <select id="personTurno"></select></label>
+          <label>Fecha base de Semana A
+            <input id="rotBase" type="date">
+            <small>Se utiliza únicamente en los días configurados como rotativos.</small>
+          </label>
+        </div>
+
+        <div class="weekly-editor-head">
+          <div>
+            <h2>Horario semanal por día</h2>
+            <p>Activá cada día y definí su horario individual. En modalidad rotativa podés indicar un horario para Semana A y otro para Semana B.</p>
+          </div>
+          <div class="actions weekly-quick-actions">
+            <button id="btnEnableWeekdays" type="button">Activar lunes a viernes</button>
+            <button id="btnCopyMonday" type="button">Copiar lunes a L-V</button>
+            <button id="btnClearWeek" type="button">Limpiar semana</button>
+          </div>
+        </div>
+        <div class="weekly-schedule-wrap">
+          <table class="weekly-schedule-table" id="weeklyScheduleEditor"></table>
+        </div>
+        <div class="weekly-preview" id="weeklySchedulePreview"></div>
+
+        <div class="actions personal-actions">
           <button id="btnSavePerson" class="primary">Guardar / actualizar</button>
-          <button id="btnNewPerson">Limpiar</button>
+          <button id="btnNewPerson">Nuevo / limpiar</button>
         </div>
       </div>
-      <div class="table-scroll card">
+      <div class="table-scroll card personal-list-card">
         <table class="data-table striped" id="personalTable"></table>
+      </div>
+      <div class="card">
+        <div class="backup-card-head">
+          <div>
+            <h2>Backups del personal</h2>
+            <p>Se conservan hasta 5 copias. Cada backup incluye la nómina, horarios semanales, licencias, turnos de 24 horas, rotativos y Canes.</p>
+          </div>
+          <button id="btnPersonalBackupNow" class="primary" type="button">Crear backup del personal</button>
+        </div>
+        <div class="table-scroll small"><table class="data-table striped" id="personalBackupTable"></table></div>
       </div>
     </section>
 
@@ -253,6 +281,35 @@
     <option value="Art. 226h"></option>
     <option value="Art. 226e"></option>
   </datalist>
+
+
+  <div id="periodPersonnelModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="periodModalTitle">
+    <div class="modal-card period-personnel-modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="periodModalTitle">Personal de la franja</h2>
+          <p id="periodModalSubtitle"></p>
+        </div>
+        <button id="btnClosePeriodModal" class="modal-close" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <div id="periodModalSummary" class="period-modal-summary"></div>
+      <div id="periodModalBody" class="period-personnel-list"></div>
+    </div>
+  </div>
+
+  <div id="validationModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="validationModalTitle">
+    <div class="modal-card validation-modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="validationModalTitle">Correcciones necesarias</h2>
+          <p id="validationModalSubtitle"></p>
+        </div>
+        <button id="btnCloseValidationModal" class="modal-close" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <ul id="validationList" class="validation-list"></ul>
+      <div class="actions validation-actions"><button type="button" class="primary" onclick="closeValidationModal()">Entendido</button></div>
+    </div>
+  </div>
 
   <script src="seed-data.js"></script>
   <script src="app.js"></script>

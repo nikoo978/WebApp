@@ -45,7 +45,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "13 A 19",
         "observaciones": "RESTRICCIONES (ROTATIVO)"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Avilez Claudio",
@@ -95,7 +174,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "349.585",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Barrera Hugo",
@@ -129,7 +287,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "07 A 17",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "17",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "17",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "17",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Carranza Gustavo",
@@ -165,7 +402,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "17",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "17",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Casaus Coria Cesar Oscar",
@@ -201,7 +517,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "329.648",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "22",
+        "fin": "05",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "22",
+        "fin": "05",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "22",
+        "fin": "05",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "22",
+        "fin": "05",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "22",
+        "fin": "05",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Cepeda Miguel",
@@ -251,7 +646,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "670.522",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Clarisa Reyna",
@@ -287,7 +761,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Cristina Ayala",
@@ -321,7 +874,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "14 A 19",
         "observaciones": ""
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Daiana Gonzalez",
@@ -357,7 +989,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "03",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "03",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "03",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "03",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "03",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Delgado Luciana",
@@ -393,7 +1104,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "12",
+        "fin": "22",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "12",
+        "fin": "22",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Diaz Walter",
@@ -427,7 +1217,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "07:00 A 12:00",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Fernandez Maria Sol",
@@ -461,7 +1330,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "07 A 12",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "12",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Fernandez Raul Sebastian",
@@ -497,7 +1445,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "607.905",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Freda Gaston",
@@ -547,7 +1574,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Gallardo Gaston",
@@ -583,7 +1689,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "607.940",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Gaston Moreira",
@@ -619,7 +1804,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Gregorio Monica Beatriz",
@@ -683,7 +1947,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "348.381",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": false,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "24hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "11",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Jadech Amira",
@@ -719,7 +2062,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "667.055",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Lastra Cesar Maximiliano",
@@ -753,7 +2175,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "20 A 02",
         "observaciones": "PUESTO 1"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "02",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "02",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "02",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "02",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "20",
+        "fin": "02",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Lovelli Georgina",
@@ -803,7 +2304,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "670.868",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "15",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "15",
+        "fin": "21",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "15",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Martin Rebollo",
@@ -839,7 +2419,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "357.967",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Mire Franco",
@@ -889,7 +2548,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "663.867",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Natalia Magallanes",
@@ -925,7 +2663,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Paulo Correas",
@@ -975,7 +2792,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Perez Vanessa Laura",
@@ -1011,7 +2907,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "352.312",
-    "situacion": "ART"
+    "situacion": "ART",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "14",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Poblete Carolina Maria Janete",
@@ -1047,7 +3022,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "367.299",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "19",
+        "fin": "23",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Quattrini Lucas",
@@ -1097,7 +3151,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "620.481",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Rafael Leiva",
@@ -1148,7 +3281,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "19",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Riveros Laura",
@@ -1182,7 +3394,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "14 A 18",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "18",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "18",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "18",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "18",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "14",
+        "fin": "18",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "4hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Sala Claudio Dario",
@@ -1218,7 +3509,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "358.349",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "01",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "01",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "13",
+        "fin": "01",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "12hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Segovia Federico",
@@ -1268,7 +3638,86 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "658.455",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Rotativo semanal",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "07",
+        "semana_a_fin": "13",
+        "semana_b_inicio": "13",
+        "semana_b_fin": "19"
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Rotativo semanal",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "07",
+        "semana_a_fin": "13",
+        "semana_b_inicio": "13",
+        "semana_b_fin": "19"
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Rotativo semanal",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "07",
+        "semana_a_fin": "13",
+        "semana_b_inicio": "13",
+        "semana_b_fin": "19"
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Rotativo semanal",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "07",
+        "semana_a_fin": "13",
+        "semana_b_inicio": "13",
+        "semana_b_fin": "19"
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Rotativo semanal",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "07",
+        "semana_a_fin": "13",
+        "semana_b_inicio": "13",
+        "semana_b_fin": "19"
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Rotativo semanal",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "07",
+        "semana_a_fin": "12",
+        "semana_b_inicio": "14",
+        "semana_b_fin": "19"
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Valdez Carmen",
@@ -1302,7 +3751,86 @@ window.SEED_PERSONAL = [
         "texto_horario": "07:00 A 13:00",
         "observaciones": "RESTRICCIONES"
       }
-    ]
+    ],
+    "horario_semanal": {
+      "lunes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "07",
+        "fin": "13",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "6hs",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   },
   {
     "nombre": "Zalazar Fabian Alejandro",
@@ -1338,10 +3866,88 @@ window.SEED_PERSONAL = [
       }
     ],
     "legajo": "357.630",
-    "situacion": ""
+    "situacion": "",
+    "horario_semanal": {
+      "lunes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "martes": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "miercoles": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "21",
+        "fin": "07",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "jueves": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "viernes": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "21",
+        "fin": "07",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "sabado": {
+        "activo": true,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "21",
+        "fin": "07",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      },
+      "domingo": {
+        "activo": false,
+        "servicio": "Diario",
+        "modalidad": "Fijo",
+        "inicio": "",
+        "fin": "",
+        "semana_a_inicio": "",
+        "semana_a_fin": "",
+        "semana_b_inicio": "",
+        "semana_b_fin": ""
+      }
+    }
   }
 ];
-
 window.SEED_TURNOS = {
   "turnos_24": {
     "A": [
@@ -1354,14 +3960,10 @@ window.SEED_TURNOS = {
     ],
     "C": [
       "Yazmin Rodriguez",
-      "Karina Calderon",
-      "Eugenia Díaz",
       "Carlos Urquiza"
     ],
     "D": [
       "Andres Errecarte",
-      "Carolina Godoy",
-      "Eugenia Díaz",
       "Soria Oscar",
       "Juan Mallaina"
     ]

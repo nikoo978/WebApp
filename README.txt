@@ -1,25 +1,21 @@
-Shift Manager WebN9.1 - CORRECCIÓN DE LICENCIAS PARA TURNOS Y CANES
+WEBN11 - ACTUALIZACIÓN PARA GIT Y VERCEL
 
-CORRECCIÓN
-- El selector de licencias ahora incluye todo el personal activo de:
-  - personal diario;
-  - turnos fijos de 24 horas;
-  - rotativos de 48 horas;
-  - Canes de los turnos A, B, C y D.
-- Art. 214 y Carpeta Médica pueden registrarse para cualquiera de esas personas.
-- Cuando una persona de Turnos o Canes tiene una licencia vigente, queda excluida automáticamente de la planilla correspondiente.
-- Los registros auxiliares creados para asociar la licencia no duplican a la persona al cargar la planilla diaria.
-- Conserva los datos, licencias, historial, backups y configuración existentes.
+MEJORAS PRINCIPALES
+- La planilla principal es de sesión: cada recarga abre una tabla limpia con la fecha real del día.
+- La última tabla trabajada queda guardada inmediatamente como borrador recuperable mediante el botón “Recuperar última tabla”, incluso si se refresca la página o se corta la energía antes de sincronizar con la nube.
+- Validación estricta antes de cargar, guardar, imprimir o exportar: fechas, horarios, marcas, servicios, nombres y duplicados.
+- Se impide repetir una persona en la planilla, turnos, Canes o rotativos de 48 h.
+- Backups específicos del personal: crear, restaurar, descargar y borrar; máximo 5 copias con fecha y hora.
+- Cada backup de personal incluye nómina, horarios, licencias, turnos fijos, rotativos y Canes.
 
 ACTUALIZAR
-1. Descomprimir este ZIP.
-2. Copiar todo su contenido dentro de la carpeta del repositorio actual.
-3. No borrar .git ni .env.local.
-4. Ejecutar:
+1. Copiar el contenido de esta carpeta sobre el repositorio actual.
+2. No borrar .git ni .env.local.
+3. Ejecutar:
 
    git status
    git add .
-   git commit -m "Corregir licencias de turnos y Canes en WebN9.1"
+   git commit -m "Actualizar a WebN11 con validación y backups del personal"
    git push
 
-Vercel desplegará automáticamente la actualización.
+Vercel realizará el despliegue automáticamente. No se agregaron dependencias.
