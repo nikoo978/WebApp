@@ -1,6 +1,6 @@
 {
-  "name": "Shift Manager WebN11",
-  "short_name": "WebN11",
+  "name": "Shift Manager WebN12",
+  "short_name": "WebN12",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#e5e5e5",

@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/"]);
 const HALF_RIGHT = new Set(["/X","./X"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN11";
+const APP_VERSION = "WebN12";
 const PERSONAL_CATALOG_VERSION = 8;
 const PERSONAL_UPDATE_NAMES = new Set([
   "clarisa reyna", "cepeda miguel", "perez vanessa laura", "casaus coria cesar oscar",
@@ -47,6 +47,7 @@ let lastContentSnapshot = "";
 let saveTimer = null;
 let isRestoringUndo = false;
 let lastPlanillaSnapshot = "";
+let dashboardInclude24 = false;
 
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
 function norm(v){ return String(v||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
@@ -1068,12 +1069,33 @@ function formatTime(v){
 function assignmentScheduleMeta(a,p,d){
   const range = assignmentRange(a,p,d);
   const service = serviceForAssignment(a,p);
-  if(range.fullDay) return {text:"24 horas",start:"07",end:"07",fullDay:true,week:range.week||""};
+  if(range.fullDay) return {text:"24 horas",start:"07",end:"07",fullDay:true,week:range.week||"",rotationType:""};
   const prefix = range.week ? `Semana ${range.week} · ` : "";
-  return {text:`${prefix}${formatTime(range.start)} a ${formatTime(range.end)}`,start:range.start,end:range.end,fullDay:false,week:range.week||"",service};
+  return {
+    text:`${prefix}${formatTime(range.start)} a ${formatTime(range.end)}`,
+    start:range.start,
+    end:range.end,
+    fullDay:false,
+    week:range.week||"",
+    rotationWeek:range.week||"",
+    rotationType:range.week ? "Rotativo semanal" : "",
+    service
+  };
 }
 function standardRow(name,service,cells,meta={}){
-  return {nombre:name,servicio:service,cells,recargo:false,schedule_text:meta.text||"",range_start:meta.start||"",range_end:meta.end||"",full_day:!!meta.fullDay,source:meta.source||""};
+  return {
+    nombre:name,
+    servicio:service,
+    cells,
+    recargo:false,
+    schedule_text:meta.text||"",
+    range_start:meta.start||"",
+    range_end:meta.end||"",
+    full_day:!!meta.fullDay,
+    source:meta.source||"",
+    rotation_week:meta.rotationWeek||meta.week||"",
+    rotation_type:meta.rotationType||""
+  };
 }
 
 function loadDay(){
@@ -1123,7 +1145,7 @@ function addStandardRows(d){
     if(rotativo48Present(item,d,turno)){
       const name = toTitleName(cleanName(item.nombre));
       if(isPersonUnavailableByName(name,d)) return;
-      if(!existing.has(norm(name))){ state.planilla.rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · Rotativo 48 · 24 horas`,start:"07",end:"07",fullDay:true,source:"Rotativo 48"})); existing.add(norm(name)); }
+      if(!existing.has(norm(name))){ state.planilla.rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · Rotativo 48 · 24 horas`,start:"07",end:"07",fullDay:true,source:"Rotativo 48",rotationType:"Rotativo 48"})); existing.add(norm(name)); }
     }
   });
 
@@ -1178,7 +1200,7 @@ function addStandardRowsTo(rows,d,turno){
     if(rotativo48Present(item,d,turno)){
       const name = toTitleName(cleanName(item.nombre));
       if(isPersonUnavailableByName(name,d)) return;
-      if(!existing.has(norm(name))){ rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · Rotativo 48 · 24 horas`,start:"07",end:"07",fullDay:true,source:"Rotativo 48"})); existing.add(norm(name)); }
+      if(!existing.has(norm(name))){ rows.push(standardRow(name,"24hs",Array(12).fill(""),{text:`Turno ${turno} · Rotativo 48 · 24 horas`,start:"07",end:"07",fullDay:true,source:"Rotativo 48",rotationType:"Rotativo 48"})); existing.add(norm(name)); }
     }
   });
   const canes = toTitleName(cleanName(state.turnos.canes_por_turno?.[turno] || ""));
@@ -1331,6 +1353,11 @@ function bindDashboard(){
     if(!cell) return;
     showPeriodPersonnel(cell.dataset.periodDate,cell.dataset.periodKey);
   });
+  root?.addEventListener("change",event=>{
+    if(event.target.id !== "dashboardInclude24") return;
+    dashboardInclude24 = !!event.target.checked;
+    renderDashboard();
+  });
   q("#btnClosePeriodModal")?.addEventListener("click",closePeriodPersonnelModal);
   q("#periodPersonnelModal")?.addEventListener("click",event=>{
     if(event.target.id === "periodPersonnelModal") closePeriodPersonnelModal();
@@ -1359,10 +1386,52 @@ function rowPresentInPeriod(row,period){
   if(range) return range[0] < pRange[1] && range[1] > pRange[0];
   return period.idx.some(i=>token(row.cells?.[i]));
 }
-function personnelForPeriod(rows,period){
+function isDashboard24Row(row){
+  const service=serviceKey(row?.servicio);
+  const source=norm(row?.source);
+  return !!row?.full_day || service==="24hs" || service==="canes" ||
+    source.includes("turno fijo") || source.includes("rotativo 48") || source==="canes";
+}
+function dashboardRotationWeek(row){
+  const direct=String(row?.rotation_week||"").trim().toUpperCase();
+  if(direct==="A" || direct==="B") return direct;
+  const match=String(row?.schedule_text||"").match(/semana\s+([AB])/i);
+  return match ? match[1].toUpperCase() : "";
+}
+function isDashboardWeeklyRotative(row){
+  return !!dashboardRotationWeek(row) || norm(row?.rotation_type).includes("rotativo semanal");
+}
+function dashboardRows(rows,include24=dashboardInclude24){
+  return (rows||[]).filter(row=>{
+    if(/^rondin\d*$/i.test(String(row.nombre||"")) || serviceKey(row.servicio)==="rondin") return false;
+    return include24 || !isDashboard24Row(row);
+  });
+}
+function dashboardScheduleLabel(person){
+  const week=dashboardRotationWeek(person);
+  if(week){
+    const range=axisRange(person.range_start,person.range_end);
+    const time = range
+      ? `${formatTime(person.range_start)} a ${formatTime(person.range_end)}`
+      : String(person.schedule_text||"Horario cargado").replace(/^\s*Semana\s+[AB]\s*·?\s*/i,"");
+    return `Rotativo semanal · Semana ${week} · ${time}`;
+  }
+  if(norm(person.rotation_type).includes("rotativo 48") || norm(person.source).includes("rotativo 48")){
+    return person.schedule_text || "Rotativo 48 · 24 horas";
+  }
+  return person.schedule_text || (isDashboard24Row(person) ? "24 horas" : "Horario cargado");
+}
+function dashboardTypeLabel(person){
+  const week=dashboardRotationWeek(person);
+  if(week) return `Rotativo · Semana ${week}`;
+  if(norm(person.rotation_type).includes("rotativo 48") || norm(person.source).includes("rotativo 48")) return "Rotativo 48";
+  if(serviceKey(person.servicio)==="canes") return "Canes · 24 h";
+  if(isDashboard24Row(person)) return "Turno fijo · 24 h";
+  return "Servicio diario";
+}
+function personnelForPeriod(rows,period,include24=dashboardInclude24){
   const people=new Map();
-  (rows||[]).forEach(row=>{
-    if(/^rondin\d*$/i.test(String(row.nombre||"")) || serviceKey(row.servicio)==="rondin") return;
+  dashboardRows(rows,include24).forEach(row=>{
     if(!rowPresentInPeriod(row,period)) return;
     const key=norm(row.nombre);
     const current=people.get(key);
@@ -1373,36 +1442,60 @@ function personnelForPeriod(rows,period){
     people.set(key,{...row});
   });
   return [...people.values()].sort((a,b)=>{
-    const rank=s=>serviceKey(s)==="24hs"?0:serviceKey(s)==="canes"?1:2;
-    return rank(a.servicio)-rank(b.servicio) || a.nombre.localeCompare(b.nombre);
+    const rank=row=>{
+      if(isDashboardWeeklyRotative(row)) return 1;
+      if(isDashboard24Row(row)) return 2;
+      return 0;
+    };
+    return rank(a)-rank(b) || a.nombre.localeCompare(b.nombre);
   });
 }
-function dailyOperationalData(d){
-  const rows = rowsForDate(d);
+function dailyOperationalData(d,include24=dashboardInclude24){
+  const allRows = rowsForDate(d);
+  const rows = dashboardRows(allRows,include24);
   const detail = coverageDetail(rows);
   const periods = periodDefs().map(p=>{
     const score = periodScore(detail,p.idx);
     const avg = p.idx.map(i=>detail[i].value).reduce((a,b)=>a+b,0)/p.idx.length;
-    const people = personnelForPeriod(rows,p);
-    return {...p, score, avg, peopleCount:people.length};
+    const people = personnelForPeriod(allRows,p,include24);
+    const rotativeCount = people.filter(isDashboardWeeklyRotative).length;
+    const hour24Count = people.filter(isDashboard24Row).length;
+    return {...p, score, avg, peopleCount:people.length, rotativeCount, hour24Count};
   });
   const totalScore = periods.reduce((a,b)=>a+b.score,0)/periods.length;
-  return {date:d, rows, detail, periods, totalScore};
+  return {date:d, rows, allRows, detail, periods, totalScore};
 }
 function showPeriodPersonnel(dateText,periodKey){
   const d=parseDMY(dateText);
   const period=periodDefs().find(p=>p.key===periodKey);
   if(!d || !period) return;
-  const data=dailyOperationalData(d);
-  const people=personnelForPeriod(data.rows,period);
+  const data=dailyOperationalData(d,dashboardInclude24);
+  const people=personnelForPeriod(data.allRows,period,dashboardInclude24);
+  const dailyCount=people.filter(p=>!isDashboard24Row(p)).length;
+  const hour24Count=people.length-dailyCount;
   q("#periodModalTitle").textContent=`${dayName(d)} · ${period.label}`;
-  q("#periodModalSubtitle").textContent=`${formatDMY(d)} · ${period.range}`;
-  q("#periodModalSummary").innerHTML=`<strong>${people.length}</strong><span>${people.length===1?"centinela programado":"centinelas programados"}</span>`;
+  q("#periodModalSubtitle").textContent=`${formatDMY(d)} · ${period.range} · ${dashboardInclude24 ? "Diarios + personal de 24 h" : "Solo servicios diarios"}`;
+  q("#periodModalSummary").innerHTML=`
+    <strong>${people.length}</strong>
+    <span>${people.length===1?"centinela visible":"centinelas visibles"}</span>
+    <small>${dailyCount} diarios${dashboardInclude24 ? ` · ${hour24Count} de 24 h/Canes` : ""}</small>
+  `;
   q("#periodModalBody").innerHTML=people.length ? people.map(person=>{
     const service=person.servicio||"Sin servicio";
-    const schedule=person.schedule_text||(["24hs","canes"].includes(serviceKey(service))?"24 horas":"Horario cargado");
-    return `<div class="period-person-card"><div class="period-person-main"><strong>${esc(person.nombre)}</strong><span>${esc(schedule)}</span></div><span class="service-badge service-${serviceKey(service)}">${esc(service)}</span></div>`;
-  }).join("") : `<p class="empty-period">No hay personal programado en esta franja.</p>`;
+    const schedule=dashboardScheduleLabel(person);
+    const type=dashboardTypeLabel(person);
+    const week=dashboardRotationWeek(person);
+    return `<div class="period-person-card ${isDashboard24Row(person)?"dashboard-person-24":"dashboard-person-daily"}">
+      <div class="period-person-main">
+        <strong>${esc(person.nombre)}</strong>
+        <span>${esc(schedule)}</span>
+        <div class="dashboard-person-tags">
+          <em class="dashboard-type-badge ${week?"is-rotative":isDashboard24Row(person)?"is-24":"is-daily"}">${esc(type)}</em>
+        </div>
+      </div>
+      <span class="service-badge service-${serviceKey(service)}">${esc(service)}</span>
+    </div>`;
+  }).join("") : `<p class="empty-period">No hay personal de servicios diarios programado en esta franja.</p>`;
   q("#periodPersonnelModal").classList.remove("hidden");
   document.body.classList.add("modal-open");
 }
@@ -1413,7 +1506,7 @@ function closePeriodPersonnelModal(){
 function renderDashboard(){
   const root = q("#dashboardContent");
   if(!root) return;
-  const week = dashboardWeek().map(dailyOperationalData);
+  const week = dashboardWeek().map(d=>dailyOperationalData(d,dashboardInclude24));
   const strongest = [...week].sort((a,b)=>b.totalScore-a.totalScore)[0];
   const weakest = [...week].sort((a,b)=>a.totalScore-b.totalScore)[0];
   const alerts = [];
@@ -1427,12 +1520,24 @@ function renderDashboard(){
     });
   });
   root.innerHTML = `
+    <div class="card dashboard-filter-card">
+      <div>
+        <h2>Personal visible en el tablero</h2>
+        <p>Por defecto se muestran únicamente los servicios diarios. Los horarios rotativos semanales siempre aparecen identificados como <strong>Rotativo · Semana A</strong> o <strong>Rotativo · Semana B</strong>.</p>
+      </div>
+      <label class="dashboard-switch">
+        <input type="checkbox" id="dashboardInclude24" ${dashboardInclude24?"checked":""}>
+        <span class="dashboard-switch-ui" aria-hidden="true"></span>
+        <strong>Mostrar también personal de 24 h</strong>
+        <small>Incluye turnos fijos, rotativos de 48 h y Canes.</small>
+      </label>
+    </div>
     <div class="dash-grid">
       <div class="metric-card"><div class="metric-title">Día más fuerte</div><div class="metric-value">${dayName(strongest.date)}</div><div>${formatDMY(strongest.date)}</div></div>
       <div class="metric-card"><div class="metric-title">Día más débil</div><div class="metric-value">${dayName(weakest.date)}</div><div>${formatDMY(weakest.date)}</div></div>
       <div class="metric-card"><div class="metric-title">Alertas críticas</div><div class="metric-value">${alerts.length}</div><div>según Deben haber cargado</div></div>
     </div>
-    <div class="card"><h2>Cobertura por día y franja</h2><p class="dashboard-instruction">Presioná una franja para ver todos los centinelas programados ese día y horario.</p><div class="period-heatmap" id="periodHeatmap"></div></div>
+    <div class="card"><h2>Cobertura por día y franja</h2><p class="dashboard-instruction">Presioná una franja para ver ${dashboardInclude24?"los servicios diarios y el personal de 24 h":"solo los servicios diarios"} programados. Los rotativos semanales muestran su Semana A o B.</p><div class="period-heatmap" id="periodHeatmap"></div></div>
     <div class="card"><h2>Detalle por horario</h2><div class="table-scroll"><table class="data-table striped" id="weekHeatTable"></table></div></div>
     <div class="card"><h2>Ranking semanal</h2><div id="rankingBars"></div></div>
     <div class="card"><h2>Alertas</h2><div id="dashboardAlerts"></div></div>
@@ -1441,7 +1546,11 @@ function renderDashboard(){
   const ph = q("#periodHeatmap");
   week.forEach(day=>{
     const row = document.createElement("div"); row.className="period-row";
-    row.innerHTML = `<div class="period-day">${dayName(day.date)}<small>${formatDMY(day.date)}</small></div>` + day.periods.map(p=>`<button type="button" class="period-cell ${coverageClass(p.score*7,7)}" data-period-date="${formatDMY(day.date)}" data-period-key="${p.key}" style="background:hsl(${Math.round(p.score*120)} 78% ${86-Math.round(p.score*12)}%)"><strong>${p.label}</strong><span>${p.range}</span><em>${p.peopleCount} centinelas · ${formatNum(Math.round(p.avg*10)/10)} prom.</em><small>Ver personal</small></button>`).join("");
+    row.innerHTML = `<div class="period-day">${dayName(day.date)}<small>${formatDMY(day.date)}</small></div>` + day.periods.map(p=>{
+      const rotText=p.rotativeCount ? ` · ${p.rotativeCount} rot.` : "";
+      const h24Text=dashboardInclude24 && p.hour24Count ? ` · ${p.hour24Count} de 24 h` : "";
+      return `<button type="button" class="period-cell ${coverageClass(p.score*7,7)}" data-period-date="${formatDMY(day.date)}" data-period-key="${p.key}" style="background:hsl(${Math.round(p.score*120)} 78% ${86-Math.round(p.score*12)}%)"><strong>${p.label}</strong><span>${p.range}</span><em>${p.peopleCount} visibles${rotText}${h24Text}</em><small>Ver personal</small></button>`;
+    }).join("");
     ph.append(row);
   });
   const table = q("#weekHeatTable");
@@ -1459,7 +1568,7 @@ function renderDashboard(){
     ranking.append(div);
   });
   q("#dashboardAlerts").innerHTML = alerts.length ? `<ul class="alert-list">${alerts.slice(0,30).map(a=>`<li>${esc(a)}</li>`).join("")}</ul>` : `<p class="ok-text">No hay alertas críticas con los Deben haber actuales.</p>`;
-  renderFatigueInto(q("#dashboardFatigue"), state.planilla.rows);
+  renderFatigueInto(q("#dashboardFatigue"), dashboardRows(state.planilla.rows,dashboardInclude24));
 }
 function renderFatigueInto(container, rows){
   if(!container) return;

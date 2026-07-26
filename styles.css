@@ -290,6 +290,27 @@ input[type="date"]{
 @media print{.modal-overlay{display:none!important}}
 
 
+/* WebN12: filtro del tablero para servicios diarios y personal de 24 h */
+.dashboard-filter-card{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-left:6px solid #315a9f}
+.dashboard-filter-card h2{margin:0 0 .35rem}.dashboard-filter-card p{margin:0;color:#4f5965;max-width:850px}
+.dashboard-switch{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"toggle title" "toggle note";column-gap:.65rem;align-items:center;min-width:310px;border:1px solid #b7c2d0;border-radius:11px;padding:.65rem .8rem;background:#f7faff;cursor:pointer}
+.dashboard-switch input{position:absolute;opacity:0;pointer-events:none}
+.dashboard-switch-ui{grid-area:toggle;width:48px;height:28px;border-radius:999px;background:#8a929d;position:relative;transition:.18s}
+.dashboard-switch-ui::after{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;border-radius:50%;background:white;box-shadow:0 1px 4px #0005;transition:.18s}
+.dashboard-switch input:checked + .dashboard-switch-ui{background:#315a9f}
+.dashboard-switch input:checked + .dashboard-switch-ui::after{transform:translateX(20px)}
+.dashboard-switch input:focus-visible + .dashboard-switch-ui{outline:3px solid #7fb0ff;outline-offset:2px}
+.dashboard-switch strong{grid-area:title}.dashboard-switch small{grid-area:note;color:#56606d;margin-top:.12rem}
+.period-modal-summary{flex-wrap:wrap}.period-modal-summary small{margin-left:auto;color:#4f5965;font-weight:700}
+.dashboard-person-tags{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.28rem}
+.dashboard-type-badge{font-style:normal;border-radius:999px;padding:.18rem .45rem;font-size:.7rem;font-weight:800;border:1px solid #aeb8c5;background:#edf1f5;color:#34404d}
+.dashboard-type-badge.is-rotative{background:#eee4ff;border-color:#b899e8;color:#56328e}
+.dashboard-type-badge.is-24{background:#dcecff;border-color:#9ebde4;color:#254f83}
+.dashboard-type-badge.is-daily{background:#e3f4e9;border-color:#9dc9ac;color:#275e39}
+.dashboard-person-24{border-left:5px solid #5686bd}.dashboard-person-daily{border-left:5px solid #4f9d69}
+@media (max-width:760px){.dashboard-filter-card{flex-direction:column;align-items:stretch}.dashboard-switch{min-width:0}.period-modal-summary small{margin-left:0;width:100%}}
+@media print{.dashboard-filter-card{display:none!important}}
+
 /* WebN11: planilla de sesión, validación estricta y backups del personal */
 .session-table-note{margin-top:.35rem;padding:.42rem .55rem;border-left:4px solid #315a9f;background:#edf4ff;border-radius:4px;color:#26384f}
 .draft-info{font-weight:700}
