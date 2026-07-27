@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/","/D"]);
 const HALF_RIGHT = new Set(["/X","./X","D/"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN22";
+const APP_VERSION = "WebN23";
 const WEATHER_LOCATION = Object.freeze({
   name:"Junín",
   province:"Buenos Aires",
@@ -1009,7 +1009,26 @@ function queueCoverageRebalance(action){
   if(root){
     root.classList.remove("hidden");
     root.classList.add("is-calculating");
-    root.innerHTML='<div class="coverage-calculating"><span></span><strong>Recalculando cobertura…</strong></div>';
+    const status=root.querySelector(".coverage-planner-state");
+    if(status){
+      status.className="coverage-planner-state calculating";
+      status.innerHTML='<span class="coverage-summary-spinner"></span> Recalculando…';
+    }else{
+      root.innerHTML=`
+        <summary class="coverage-planner-summary">
+          <div class="coverage-summary-title">
+            <span>PLANIFICACIÓN AUTOMÁTICA 07→07</span>
+            <small>El detalle permanece oculto durante el recálculo.</small>
+          </div>
+          <div class="coverage-summary-actions">
+            <div class="coverage-planner-state calculating"><span class="coverage-summary-spinner"></span> Recalculando…</div>
+            <span class="coverage-planner-chevron" aria-hidden="true">⌄</span>
+          </div>
+        </summary>
+        <div class="coverage-planner-body">
+          <div class="coverage-calculating"><span></span><strong>Actualizando distribución y recargos…</strong></div>
+        </div>`;
+    }
   }
   coverageRebalanceTimer=setTimeout(()=>{
     coverageRebalanceTimer=null;
@@ -1951,59 +1970,82 @@ function renderCoveragePlanner(){
 
   if(!operational.length&&!belowSlots.length){
     root.classList.add("hidden");
+    root.classList.remove("is-calculating");
     root.innerHTML="";
     return;
   }
 
   const centinelas=operational.filter(row=>serviceKey(row.servicio)==="24hs");
   const canes=operational.filter(row=>serviceKey(row.servicio)==="canes");
-  root.classList.remove("hidden");
+  const wasOpen=root.open;
+
+  const statusClass=belowSlots.length||over?"warning":"ok";
+  const statusText=over
+    ? `⚠ ${over} horas superan 8 puestos`
+    : belowSlots.length
+      ? `⚠ ${belowSlots.length} horas debajo del mínimo`
+      : "✓ Cobertura mínima alcanzada";
+
+  root.classList.remove("hidden","is-calculating");
   root.innerHTML=`
-    <div class="coverage-planner-head">
-      <div>
+    <summary class="coverage-planner-summary">
+      <div class="coverage-summary-title">
         <span>PLANIFICACIÓN AUTOMÁTICA 07→07</span>
-        <strong>Centinelas: ${centinelas.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}`).join(" · ")||"sin personal"}${canes.length?` · Canes: ${canes.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}/3`).join(" · ")}`:""}</strong>
+        <small>${centinelas.length} centinela${centinelas.length===1?"":"s"} · ${canes.length} Canes${suggestions.length?` · ${suggestions.length} recargo${suggestions.length===1?"":"s"} sugerido${suggestions.length===1?"":"s"}`:""}</small>
       </div>
-      <div class="coverage-planner-state ${belowSlots.length||over?"warning":"ok"}">
-        ${over?`⚠ ${over} horas superan 8 puestos`:belowSlots.length?`⚠ ${belowSlots.length} horas debajo del mínimo`:"✓ Cobertura mínima alcanzada y sin superar 8"}
+      <div class="coverage-summary-actions">
+        <div class="coverage-planner-state ${statusClass}">${statusText}</div>
+        <span class="coverage-planner-chevron" aria-hidden="true">⌄</span>
       </div>
-    </div>
+    </summary>
 
-    ${suggestions.length?`
-      <div class="coverage-critical-alert">
-        <div class="coverage-critical-icon">⚠</div>
+    <div class="coverage-planner-body">
+      <div class="coverage-planner-head">
         <div>
-          <strong>La cobertura disponible no alcanza el mínimo</strong>
-          <span>Se intentó primero redistribuir a los centinelas con carga normal de 7 tiros y utilizar hasta 8 cuando fue necesario. Los siguientes recargos son el refuerzo pendiente.</span>
+          <span>DISTRIBUCIÓN ACTUAL</span>
+          <strong>Centinelas: ${centinelas.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}`).join(" · ")||"sin personal"}${canes.length?` · Canes: ${canes.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}/3`).join(" · ")}`:""}</strong>
         </div>
       </div>
-      <div class="recargo-suggestions prominent">
-        <div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Cada recargo cubre 3 tiros consecutivos.</small></div></div>
-        <div class="recargo-cards">
-          ${suggestions.map(item=>`<div class="recargo-card">
-            <b>${item.quantity} × ${item.range}</b>
-            <span>${esc(item.reason)}</span>
-            <small>${item.weakest.map(x=>`${x.hour}: ${x.coverage}/${x.minimum}`).join(" · ")}${item.limited?" · reorganizar las X para no superar 8 en el resto del bloque":""}</small>
-          </div>`).join("")}
-        </div>
-      </div>`:""}
 
-    <div class="coverage-mini-grid">
-      ${detail.map((item,i)=>{
-        const leftMin=COVERAGE_TARGETS.halfMinimum[i*2],rightMin=COVERAGE_TARGETS.halfMinimum[i*2+1];
-        const leftMax=item.left>8,rightMax=item.right>8;
-        const belowMin=item.left<leftMin||item.right<rightMin;
-        const belowIdeal=item.left<COVERAGE_TARGETS.halfIdeal[i*2]||item.right<COVERAGE_TARGETS.halfIdeal[i*2+1];
-        const level=leftMax||rightMax?"high":belowMin?"critical":belowIdeal?"caution":"safe";
-        return `<div class="coverage-mini ${level}">
-          <small>${HOURS[i]}</small>
-          <strong>${item.display}</strong>
-          <span>mín ${targetTextForColumn(i,"halfMinimum")} · ideal ${targetTextForColumn(i,"halfIdeal")}</span>
-        </div>`;
-      }).join("")}
+      ${suggestions.length?`
+        <div class="coverage-critical-alert">
+          <div class="coverage-critical-icon">⚠</div>
+          <div>
+            <strong>La cobertura disponible no alcanza el mínimo</strong>
+            <span>Se intentó primero redistribuir a los centinelas con carga normal de 7 tiros. Los siguientes recargos son el refuerzo pendiente.</span>
+          </div>
+        </div>
+        <div class="recargo-suggestions prominent">
+          <div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Cada recargo cubre 3 tiros consecutivos.</small></div></div>
+          <div class="recargo-cards">
+            ${suggestions.map(item=>`<div class="recargo-card">
+              <b>${item.quantity} × ${item.range}</b>
+              <span>${esc(item.reason)}</span>
+              <small>${item.weakest.map(x=>`${x.hour}: ${x.coverage}/${x.minimum}`).join(" · ")}${item.limited?" · reorganizar las X para no superar 8 en el resto del bloque":""}</small>
+            </div>`).join("")}
+          </div>
+        </div>`:""}
+
+      <div class="coverage-mini-grid">
+        ${detail.map((item,i)=>{
+          const leftMin=COVERAGE_TARGETS.halfMinimum[i*2],rightMin=COVERAGE_TARGETS.halfMinimum[i*2+1];
+          const leftMax=item.left>8,rightMax=item.right>8;
+          const belowMin=item.left<leftMin||item.right<rightMin;
+          const belowIdeal=item.left<COVERAGE_TARGETS.halfIdeal[i*2]||item.right<COVERAGE_TARGETS.halfIdeal[i*2+1];
+          const level=leftMax||rightMax?"high":belowMin?"critical":belowIdeal?"caution":"safe";
+          return `<div class="coverage-mini ${level}">
+            <small>${HOURS[i]}</small>
+            <strong>${item.display}</strong>
+            <span>mín ${targetTextForColumn(i,"halfMinimum")} · ideal ${targetTextForColumn(i,"halfIdeal")}</span>
+          </div>`;
+        }).join("")}
+      </div>
     </div>
   `;
+
+  root.open=wasOpen;
 }
+
 function loadDay(){
   const masterErrors=validateMasterData();
   if(showValidationErrors(masterErrors,"Corregí los datos antes de cargar la tabla")) return;
