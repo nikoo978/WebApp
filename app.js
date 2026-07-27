@@ -21,7 +21,7 @@ const HALF_LEFT = new Set(["X/","/D"]);
 const HALF_RIGHT = new Set(["/X","./X","D/"]);
 const HALF = new Set([...HALF_LEFT, ...HALF_RIGHT]);
 const INACTIVE_OVERRIDES = new Set(["arnaldo andrade", "cristina ayala"]);
-const APP_VERSION = "WebN20";
+const APP_VERSION = "WebN22";
 const WEATHER_LOCATION = Object.freeze({
   name:"Junín",
   province:"Buenos Aires",
@@ -839,6 +839,7 @@ function renderAll(){
   if(!state) return;
   renderStaffDatalist();
   renderPlanilla();
+  renderCoveragePlanner();
   renderDashboard();
   renderWeather();
   renderDailyView();
@@ -996,6 +997,28 @@ function renderSavedTables(){
   }));
 }
 
+let coverageRebalanceTimer=null;
+let coverageRebalanceAction="Recalcular cobertura automática";
+function cancelQueuedCoverageRebalance(){
+  if(coverageRebalanceTimer){ clearTimeout(coverageRebalanceTimer); coverageRebalanceTimer=null; }
+}
+function queueCoverageRebalance(action){
+  coverageRebalanceAction=action||coverageRebalanceAction;
+  cancelQueuedCoverageRebalance();
+  const root=q("#coveragePlanner");
+  if(root){
+    root.classList.remove("hidden");
+    root.classList.add("is-calculating");
+    root.innerHTML='<div class="coverage-calculating"><span></span><strong>Recalculando cobertura…</strong></div>';
+  }
+  coverageRebalanceTimer=setTimeout(()=>{
+    coverageRebalanceTimer=null;
+    rebalanceAutomaticCoverage();
+    save({action:coverageRebalanceAction});
+    renderAll();
+  },60);
+}
+
 function bindPlanilla(){
   q("#btnHideControls").onclick = ()=> document.body.classList.add("focus-table");
   q("#btnShowControls").onclick = ()=> document.body.classList.remove("focus-table");
@@ -1126,7 +1149,12 @@ function renderPlanilla(){
   body.querySelectorAll("select[data-field='servicio']").forEach(sel=> sel.onchange = e=>{
     const row=state.planilla.rows[Number(sel.dataset.r)];
     row.servicio=e.target.value;
-    if(["24hs","canes"].includes(serviceKey(row.servicio))){ row.auto_managed=true; row.auto_assigned=true; rebalanceAutomaticCoverage(); }
+    if(["24hs","canes"].includes(serviceKey(row.servicio))){
+      row.auto_managed=true; row.auto_assigned=true;
+      useAutomaticRow();
+      queueCoverageRebalance("Modificar servicio y recalcular cobertura");
+      return;
+    }
     useAutomaticRow();
     save({action:"Modificar servicio en planilla"});
     renderAll();
@@ -1143,12 +1171,13 @@ function renderPlanilla(){
         row.auto_assigned=true;
       }
       useAutomaticRow();
-      // H, D y la eliminación de estas marcas se aplican manualmente.
-      // Después de cada cambio se redistribuyen las X automáticas respetando la marca.
-      rebalanceAutomaticCoverage();
+      // La marca se muestra inmediatamente. El recálculo se ejecuta una sola vez
+      // después de una pausa breve, evitando bloquear la interfaz en cada toque.
+      td.textContent=row.cells[c];
+      td.classList.toggle("descanso",token(row.cells[c]).includes("D"));
+      td.classList.toggle("marca-h",token(row.cells[c])==="H");
       longPressFired=true;
-      save({action:row.cells[c]==="D"?"Marcar descanso D":row.cells[c]==="H"?"Marcar H":"Quitar marca de descanso"});
-      renderAll();
+      queueCoverageRebalance(row.cells[c]==="D"?"Marcar descanso D y recalcular":row.cells[c]==="H"?"Marcar H y recalcular":"Quitar marca y recalcular");
     };
     td.addEventListener("pointerdown", e=>{
       longPressFired=false;
@@ -1160,6 +1189,7 @@ function renderPlanilla(){
       clearTimeout(longPressTimer);
       if(longPressFired){ longPressFired=false; return; }
       if(e.ctrlKey){ applyStatusMark(); longPressFired=false; return; }
+      cancelQueuedCoverageRebalance();
       const r=Number(td.dataset.r), c=Number(td.dataset.c);
       const row=state.planilla.rows[r];
       const seq=["","X","X/","/X"];
@@ -1451,82 +1481,119 @@ function blockedSlotsForRow(row){
   (row.cells||[]).forEach(value=>out.push(...cellBlockedHalves(value)));
   return out;
 }
+const COVERAGE_CANDIDATE_CACHE=new Map();
 function candidatePatternsForRow(row,allowExtreme=false){
   const canes=serviceKey(row.servicio)==="canes";
   const blocked=blockedSlotsForRow(row);
-  const source=canes?BASE_CANES_PATTERNS:BASE_24_PATTERNS;
-  let candidates=source.filter(slots=>patternAllowed(slots,blocked,{canes,extreme:false}));
-  if(!canes&&allowExtreme){
-    const extreme=[];
-    source.forEach(base=>extreme.push(...extremeNightVariants(base)));
-    candidates=candidates.concat(extreme.filter(slots=>patternAllowed(slots,blocked,{canes:false,extreme:true})));
+  const blockedKey=blocked.join("");
+  const cacheKey=`${canes?"C":"24"}|${allowExtreme?1:0}|${blockedKey}`;
+  const cached=COVERAGE_CANDIDATE_CACHE.get(cacheKey);
+  if(cached) return cached;
+
+  let candidates=[];
+  if(canes){
+    candidates=BASE_CANES_PATTERNS.filter(slots=>patternAllowed(slots,blocked,{canes:true,extreme:false}));
+  }else{
+    // La carga normal del centinela es exactamente 7 tiros. Solo se baja a 6
+    // cuando los descansos manuales impiden formar un patrón válido de 7.
+    const byShots=shots=>BASE_24_PATTERNS.filter(slots=>slots.reduce((a,b)=>a+b,0)===shots*2);
+    candidates=byShots(7).filter(slots=>patternAllowed(slots,blocked,{canes:false,extreme:allowExtreme}));
+    if(!candidates.length) candidates=byShots(6).filter(slots=>patternAllowed(slots,blocked,{canes:false,extreme:allowExtreme}));
   }
+  COVERAGE_CANDIDATE_CACHE.set(cacheKey,candidates);
   return candidates;
 }
 function coverageObjective(coverage){
   let score=0;
   coverage.forEach((value,i)=>{
     const min=COVERAGE_TARGETS.halfMinimum[i],ideal=COVERAGE_TARGETS.halfIdeal[i],max=COVERAGE_TARGETS.halfMaximum[i];
-    if(value<min) score-=(min-value)*(min-value)*1500;
-    else score-=Math.abs(value-ideal)*45;
-    if(value>max) score-=(value-max)*(value-max)*6000;
+    if(value<min) score-=(min-value)*(min-value)*4200;
+    else if(value<ideal) score-=(ideal-value)*95;
+    else if(value>ideal) score-=(value-ideal)*(value-ideal)*620;
+    if(value>max) score-=(value-max)*(value-max)*12000;
   });
-  for(let i=1;i<coverage.length;i++) score-=Math.abs(coverage[i]-coverage[i-1])*70;
+
+  // La cobertura debe formar mesetas, no dientes. Se castigan especialmente
+  // los saltos a 8 que duran una o dos horas.
+  for(let i=1;i<coverage.length;i++) score-=Math.abs(coverage[i]-coverage[i-1])*145;
   for(let i=1;i<coverage.length-1;i++){
     const left=coverage[i]-coverage[i-1],right=coverage[i+1]-coverage[i];
-    if(left*right<0) score-=(Math.abs(left)+Math.abs(right))*85;
+    if(left*right<0) score-=(Math.abs(left)+Math.abs(right))*230;
     const neighbors=(coverage[i-1]+coverage[i+1])/2;
-    score-=Math.max(0,Math.abs(coverage[i]-neighbors)-1)*100;
+    score-=Math.max(0,Math.abs(coverage[i]-neighbors)-0.5)*310;
+  }
+  let cursor=0;
+  while(cursor<coverage.length){
+    if(coverage[cursor]<8){ cursor++; continue; }
+    const start=cursor;
+    while(cursor<coverage.length&&coverage[cursor]>=8) cursor++;
+    const length=cursor-start;
+    if(length<=2) score-=length*5200;
+    else score-=length*500;
   }
   return score;
 }
 function candidatePreference(row,slots,allowExtreme=false){
-  const work=slots.reduce((a,b)=>a+b,0);
-  if(serviceKey(row.servicio)==="canes") return -work*5;
-  let score=-Math.abs(work-14)*9;
+  const work=slots.reduce((a,b)=>a+b,0),shots=work/2;
+  if(serviceKey(row.servicio)==="canes") return -shots*180;
+  let score=0;
+  if(shots<7) score-=(7-shots)*2300;
+  if(shots>7) score-=(shots-7)*3000;
   const nightRest=longestNightRest(slots);
-  if(nightRest===3) score-=allowExtreme?900:100000;
-  score-=Math.max(0,4-nightRest)*10000;
+  if(nightRest===3) score-=allowExtreme?1900:100000;
+  score-=Math.max(0,4-nightRest)*14000;
   return score;
 }
 function addSlots(target,slots,sign=1){ slots.forEach((v,i)=>target[i]+=v*sign); }
 function fixedCoverageRows(rows){
-  return rows.filter(row=>!( ["24hs","canes"].includes(serviceKey(row.servicio)) && row.auto_managed!==false ));
+  return rows.filter(row=>!(["24hs","canes"].includes(serviceKey(row.servicio))&&row.auto_managed!==false));
 }
 function runCoverageOptimizer(rows,{allowExtreme=false}={}){
-  const managed=rows.filter(row=>["24hs","canes"].includes(serviceKey(row.servicio))&&row.auto_managed!==false);
+  const managed=rows
+    .filter(row=>["24hs","canes"].includes(serviceKey(row.servicio))&&row.auto_managed!==false)
+    .sort((a,b)=>{
+      const serviceOrder=Number(serviceKey(a.servicio)==="canes")-Number(serviceKey(b.servicio)==="canes");
+      if(serviceOrder) return serviceOrder;
+      return blockedSlotsForRow(b).reduce((x,y)=>x+y,0)-blockedSlotsForRow(a).reduce((x,y)=>x+y,0);
+    });
   const coverage=coverageHalfSlots(fixedCoverageRows(rows));
   const assignments=new Map();
 
-  managed.sort((a,b)=>Number(serviceKey(a.servicio)==="canes")-Number(serviceKey(b.servicio)==="canes"));
+  // Optimizador codicioso con dos refinamientos. Reemplaza la búsqueda por haz
+  // de WebN21, que evaluaba decenas de miles de combinaciones en cada cambio.
   managed.forEach(row=>{
     const candidates=candidatePatternsForRow(row,allowExtreme);
     let best=Array(24).fill(0),bestScore=-Infinity;
-    candidates.forEach(slots=>{
-      const trial=coverage.map((v,i)=>v+slots[i]);
+    (candidates.length?candidates:[best]).forEach(slots=>{
+      const trial=coverage.map((value,i)=>value+slots[i]);
       const score=coverageObjective(trial)+candidatePreference(row,slots,allowExtreme);
-      if(score>bestScore){bestScore=score;best=slots;}
+      if(score>bestScore){ bestScore=score; best=slots; }
     });
     assignments.set(row,best); addSlots(coverage,best,1);
   });
 
-  for(let pass=0;pass<3;pass++){
-    managed.forEach(row=>{
-      const current=assignments.get(row)||Array(24).fill(0); addSlots(coverage,current,-1);
+  for(let pass=0;pass<2;pass++){
+    const passRows=pass?[...managed].reverse():managed;
+    passRows.forEach(row=>{
+      const current=assignments.get(row)||Array(24).fill(0);
+      addSlots(coverage,current,-1);
       const candidates=candidatePatternsForRow(row,allowExtreme);
       let best=current,bestScore=-Infinity;
-      candidates.forEach(slots=>{
-        const trial=coverage.map((v,i)=>v+slots[i]);
+      (candidates.length?candidates:[current]).forEach(slots=>{
+        const trial=coverage.map((value,i)=>value+slots[i]);
         const score=coverageObjective(trial)+candidatePreference(row,slots,allowExtreme);
-        if(score>bestScore){bestScore=score;best=slots;}
+        if(score>bestScore){ bestScore=score; best=slots; }
       });
       assignments.set(row,best); addSlots(coverage,best,1);
     });
   }
+
   assignments.forEach((slots,row)=>{
     const locked=[...(row.cells||Array(12).fill(""))];
     row.cells=cellsFromSlots(slots,locked);
-    row.auto_assigned=true; row.auto_managed=true; row.auto_shots=tiros(row);
+    row.auto_assigned=true;
+    row.auto_managed=true;
+    row.auto_shots=tiros(row);
   });
   return {coverage,managed};
 }
@@ -1541,30 +1608,114 @@ function setRowHalfWork(row,slot,value,{markRest=false}={}){
     row.cells[column]=current[column*2]&&current[column*2+1]?"X":current[column*2]?"X/":current[column*2+1]?"/X":"";
   }
 }
-function smoothCoveragePeaks(rows){
-  const coverage=coverageHalfSlots(rows);
-  const removeOne=slot=>{
-    const row=rows
-      .filter(item=>serviceKey(item.servicio)==="24hs"&&item.auto_managed!==false&&tiros(item)>6&&cellHalfShots(item.cells[Math.floor(slot/2)])[slot%2]&&!["H","D","/D","D/"].includes(token(item.cells[Math.floor(slot/2)])))
-      .sort((a,b)=>tiros(b)-tiros(a))[0];
-    if(!row) return false;
-    setRowHalfWork(row,slot,0); row.auto_shots=tiros(row); coverage[slot]--; return true;
-  };
-  for(let pass=0;pass<3;pass++){
-    let start=0;
-    while(start<24){
-      while(start<24&&coverage[start]<=COVERAGE_TARGETS.halfIdeal[start]) start++;
-      if(start>=24) break;
-      let end=start;
-      while(end+1<24&&coverage[end+1]>COVERAGE_TARGETS.halfIdeal[end+1]) end++;
-      const left=start>0?coverage[start-1]:COVERAGE_TARGETS.halfIdeal[start];
-      const right=end<23?coverage[end+1]:COVERAGE_TARGETS.halfIdeal[end];
-      const ideal=Math.max(...COVERAGE_TARGETS.halfIdeal.slice(start,end+1));
-      const target=Math.max(ideal,Math.min(8,Math.min(left,right)+2));
-      for(let slot=start;slot<=end;slot++) while(coverage[slot]>target&&removeOne(slot)){}
-      start=end+1;
+function movePeakWork(rows,coverage,donorSlot){
+  const candidates=[];
+  rows.forEach(row=>{
+    if(serviceKey(row.servicio)!=="24hs"||row.auto_managed===false) return;
+    const current=slotsFromCells(row.cells);
+    if(!current[donorSlot]) return;
+    if(coverage[donorSlot]-1<COVERAGE_TARGETS.halfMinimum[donorSlot]) return;
+
+    for(let target=0;target<24;target++){
+      if(current[target]) continue;
+      if(coverage[target]>=COVERAGE_TARGETS.halfIdeal[target]) continue;
+      const trial=cloneSlots(current);
+      trial[donorSlot]=0; trial[target]=1;
+      const allowExtreme=longestNightRest(current)===3;
+      if(!repairPatternAllowed(row,trial,{allowExtreme})) continue;
+      const trialCoverage=[...coverage]; trialCoverage[donorSlot]--; trialCoverage[target]++;
+      let score=coverageObjective(trialCoverage)-coverageObjective(coverage);
+      score+=(coverage[donorSlot]-coverage[target])*420;
+      score-=Math.abs(target-donorSlot)*12;
+      candidates.push({row,trial,target,score});
+    }
+  });
+  candidates.sort((a,b)=>b.score-a.score);
+  const selected=candidates[0];
+  if(!selected||selected.score<=0) return false;
+  selected.row.cells=cellsFromSlots(selected.trial,selected.row.cells);
+  selected.row.auto_shots=tiros(selected.row);
+  coverage[donorSlot]--; coverage[selected.target]++;
+  return true;
+}
+function smoothCoveragePeaks(rows,initialCoverage=coverageHalfSlots(rows)){
+  const coverage=[...initialCoverage];
+  let operations=0;
+
+  // Primero se eliminan mesetas de 8 de una o dos horas. Un 8 breve no aporta
+  // estabilidad y suele producir el efecto 7→8→7 señalado por el usuario.
+  for(let pass=0;pass<2&&operations<24;pass++){
+    let cursor=0;
+    while(cursor<24&&operations<24){
+      if(coverage[cursor]<8){ cursor++; continue; }
+      const start=cursor;
+      while(cursor<24&&coverage[cursor]>=8) cursor++;
+      const end=cursor-1,length=end-start+1;
+      if(length>2) continue;
+      for(let slot=start;slot<=end&&operations<24;slot++){
+        while(coverage[slot]>=8&&movePeakWork(rows,coverage,slot)){ operations++; }
+      }
     }
   }
+
+  // Segundo pase: suaviza dientes por encima del ideal, manteniendo los 7 tiros
+  // de cada centinela mediante traslados, no eliminándolos.
+  const donors=Array.from({length:24},(_,i)=>i)
+    .filter(i=>coverage[i]>COVERAGE_TARGETS.halfIdeal[i])
+    .sort((a,b)=>(coverage[b]-COVERAGE_TARGETS.halfIdeal[b])-(coverage[a]-COVERAGE_TARGETS.halfIdeal[a]));
+  donors.forEach(slot=>{
+    if(operations>=36) return;
+    const left=slot?coverage[slot-1]:coverage[slot];
+    const right=slot<23?coverage[slot+1]:coverage[slot];
+    if(coverage[slot]<=Math.max(left,right)+1&&coverage[slot]<8) return;
+    if(movePeakWork(rows,coverage,slot)) operations++;
+  });
+  return coverage;
+}
+function normalizeCentinelaLoads(rows,initialCoverage){
+  const coverage=[...(initialCoverage||coverageHalfSlots(rows))];
+  const centinelas=rows.filter(row=>serviceKey(row.servicio)==="24hs"&&row.auto_managed!==false);
+
+  // Si una reparación llevó a alguien por encima de 7, se retira únicamente
+  // trabajo que no sea necesario para conservar el mínimo.
+  centinelas.forEach(row=>{
+    let safety=4;
+    while(tiros(row)>7&&safety-->0){
+      const current=slotsFromCells(row.cells);
+      let selected=null,bestScore=-Infinity;
+      current.forEach((working,slot)=>{
+        if(!working||coverage[slot]-1<COVERAGE_TARGETS.halfMinimum[slot]) return;
+        const trial=cloneSlots(current); trial[slot]=0;
+        if(!repairPatternAllowed(row,trial,{allowExtreme:longestNightRest(current)===3})) return;
+        const trialCoverage=[...coverage]; trialCoverage[slot]--;
+        const score=coverageObjective(trialCoverage)-coverageObjective(coverage);
+        if(score>bestScore){ bestScore=score; selected={trial,slot}; }
+      });
+      if(!selected) break;
+      row.cells=cellsFromSlots(selected.trial,row.cells); row.auto_shots=tiros(row); coverage[selected.slot]--;
+    }
+  });
+
+  // Si un descanso manual dejó a alguien con menos de 7, se intenta recuperar
+  // su carga en horas que todavía estén por debajo del ideal, sin crear un 8.
+  centinelas.forEach(row=>{
+    let safety=4;
+    while(tiros(row)<7&&safety-->0){
+      const current=slotsFromCells(row.cells);
+      let selected=null,bestScore=-Infinity;
+      for(let slot=0;slot<24;slot++){
+        if(current[slot]||coverage[slot]>=COVERAGE_TARGETS.halfIdeal[slot]) continue;
+        const trial=cloneSlots(current); trial[slot]=1;
+        if(trial.reduce((a,b)=>a+b,0)>14) continue;
+        if(!repairPatternAllowed(row,trial,{allowExtreme:false})) continue;
+        const trialCoverage=[...coverage]; trialCoverage[slot]++;
+        const score=coverageObjective(trialCoverage)-coverageObjective(coverage);
+        if(score>bestScore){ bestScore=score; selected={trial,slot}; }
+      }
+      if(!selected) break;
+      row.cells=cellsFromSlots(selected.trial,row.cells); row.auto_shots=tiros(row); coverage[selected.slot]++;
+    }
+  });
   return coverage;
 }
 function enforceMaximumCoverage(rows){
@@ -1575,7 +1726,10 @@ function enforceMaximumCoverage(rows){
       const removable24=rows
         .filter(row=>serviceKey(row.servicio)==="24hs"&&cellHalfShots(row.cells[Math.floor(slot/2)])[slot%2]&&!["H","D","/D","D/"].includes(token(row.cells[Math.floor(slot/2)])))
         .sort((a,b)=>tiros(b)-tiros(a));
-      let row=removable24.find(item=>tiros(item)>6)||removable24[0];
+      let row=removable24.find(item=>tiros(item)>7)
+        ||removable24.find(item=>tiros(item)>6.5)
+        ||removable24.find(item=>tiros(item)>6)
+        ||removable24[0];
       if(row){ setRowHalfWork(row,slot,0); coverage[slot]--; row.auto_shots=tiros(row); continue; }
       const canes=rows.find(item=>serviceKey(item.servicio)==="canes"&&cellHalfShots(item.cells[Math.floor(slot/2)])[slot%2]);
       if(canes){ setRowHalfWork(canes,slot,0); coverage[slot]--; canes.auto_shots=tiros(canes); continue; }
@@ -1586,6 +1740,147 @@ function enforceMaximumCoverage(rows){
   }
   return coverage;
 }
+
+function repairPatternAllowed(row,slots,{allowExtreme=false}={}){
+  const blocked=blockedSlotsForRow(row);
+  if(slots.some((value,i)=>value&&blocked[i])) return false;
+  if(maxWorkWithoutFullRest(slots)>6) return false;
+  const work=slots.reduce((a,b)=>a+b,0);
+  if(serviceKey(row.servicio)==="canes") return work<=6;
+  if(work>16) return false;
+  return longestNightRest(slots)>=(allowExtreme?3:4);
+}
+function deficitCandidateScore(row,slot,trial,{allowExtreme=false}={}){
+  const service=serviceKey(row.servicio);
+  const currentSlots=slotsFromCells(row.cells);
+  const shots=currentSlots.reduce((a,b)=>a+b,0)/2;
+  let score=0;
+
+  if(service==="24hs"){
+    // El automático completa la carga normal hasta 7 tiros, pero no crea un
+    // octavo tiro aislado. Si con 7 no alcanza, corresponde sugerir recargos.
+    if(shots>=7) return -Infinity;
+    score += 12000+(7-shots)*1600;
+  }else if(service==="canes"){
+    if(shots>=3) return -Infinity;
+    score += 2200-shots*220;
+  }else{
+    return -Infinity;
+  }
+
+  const column=Math.floor(slot/2);
+  const pairedSlot=column*2+(slot%2?0:1);
+  if(currentSlots[pairedSlot]) score+=1800; // Completa X/ o /X sin subir la hora vecina.
+  if(slot>0&&currentSlots[slot-1]) score+=260;
+  if(slot<23&&currentSlots[slot+1]) score+=260;
+  if((slot===0||!currentSlots[slot-1])&&(slot===23||!currentSlots[slot+1])&&!currentSlots[pairedSlot]) score-=350;
+
+  const nightRest=longestNightRest(trial);
+  if(nightRest===3) score-=allowExtreme?1800:100000;
+  return score;
+}
+function moveWorkToDeficit(rows,coverage,slot,{allowExtreme=false}={}){
+  const candidates=[];
+  rows.forEach(row=>{
+    if(!["24hs","canes"].includes(serviceKey(row.servicio))||row.auto_managed===false) return;
+    const current=slotsFromCells(row.cells);
+    if(current[slot]) return;
+
+    current.forEach((working,donor)=>{
+      if(!working||donor===slot) return;
+      if(coverage[donor]-1<COVERAGE_TARGETS.halfMinimum[donor]) return;
+
+      const trial=cloneSlots(current);
+      trial[donor]=0;
+      trial[slot]=1;
+      if(!repairPatternAllowed(row,trial,{allowExtreme})) return;
+
+      const trialCoverage=[...coverage];
+      trialCoverage[donor]--;
+      trialCoverage[slot]++;
+      let score=coverageObjective(trialCoverage)-coverageObjective(coverage);
+      const paired=Math.floor(donor/2)===Math.floor(slot/2);
+      if(paired) score+=6500; // /X → X/ o X/ → /X: corrige una hora sin subir la otra.
+      score+=(coverage[donor]-COVERAGE_TARGETS.halfMinimum[donor])*700;
+      score-=Math.abs(donor-slot)*18;
+      if(donor>0&&donor<23&&coverage[donor]>coverage[donor-1]&&coverage[donor]>coverage[donor+1]) score+=500;
+      candidates.push({row,trial,donor,score});
+    });
+  });
+
+  candidates.sort((a,b)=>b.score-a.score);
+  const selected=candidates[0];
+  if(!selected) return false;
+  selected.row.cells=cellsFromSlots(selected.trial,selected.row.cells);
+  selected.row.auto_assigned=true;
+  selected.row.auto_managed=true;
+  selected.row.auto_shots=tiros(selected.row);
+  coverage[selected.donor]--;
+  coverage[slot]++;
+  return true;
+}
+
+function addWorkToDeficit(rows,coverage,slot,{allowExtreme=false}={}){
+  const candidates=[];
+  rows.forEach(row=>{
+    if(!["24hs","canes"].includes(serviceKey(row.servicio))||row.auto_managed===false) return;
+    const current=slotsFromCells(row.cells);
+    if(current[slot]) return;
+    const trial=cloneSlots(current);
+    trial[slot]=1;
+    if(!repairPatternAllowed(row,trial,{allowExtreme})) return;
+    const score=deficitCandidateScore(row,slot,trial,{allowExtreme});
+    if(Number.isFinite(score)) candidates.push({row,trial,score});
+  });
+  candidates.sort((a,b)=>b.score-a.score);
+  const selected=candidates[0];
+  if(!selected) return false;
+  selected.row.cells=cellsFromSlots(selected.trial,selected.row.cells);
+  selected.row.auto_assigned=true;
+  selected.row.auto_managed=true;
+  selected.row.auto_shots=tiros(selected.row);
+  coverage[slot]++;
+  return true;
+}
+function repairCoverageDeficits(rows,initialCoverage){
+  const coverage=[...(initialCoverage||coverageHalfSlots(rows))];
+  const repairPhase=allowExtreme=>{
+    let changed=false;
+    // Se priorizan las faltas mayores y, en igualdad, el horario nocturno.
+    const slots=Array.from({length:24},(_,i)=>i).sort((a,b)=>{
+      const deficitA=COVERAGE_TARGETS.halfMinimum[a]-coverage[a];
+      const deficitB=COVERAGE_TARGETS.halfMinimum[b]-coverage[b];
+      if(deficitA!==deficitB) return deficitB-deficitA;
+      return Number(b>=NIGHT_SLOT_START)-Number(a>=NIGHT_SLOT_START);
+    });
+    slots.forEach(slot=>{
+      let safety=16;
+      while(coverage[slot]<COVERAGE_TARGETS.halfMinimum[slot]&&safety-->0){
+        // Primero se mueve un tiro desde una hora con excedente. Esto conserva
+        // los 7 tiros normales y corrige casos como 4/8 convirtiendo /X en X/.
+        if(moveWorkToDeficit(rows,coverage,slot,{allowExtreme})){
+          changed=true;
+          continue;
+        }
+        if(!addWorkToDeficit(rows,coverage,slot,{allowExtreme})) break;
+        changed=true;
+      }
+    });
+    return changed;
+  };
+
+  for(let pass=0;pass<4&&hasCriticalDeficit(coverage);pass++){
+    if(!repairPhase(false)) break;
+  }
+  // Solo como último recurso se permite reducir el descanso nocturno continuo a 3 horas.
+  if(hasCriticalDeficit(coverage)){
+    for(let pass=0;pass<2&&hasCriticalDeficit(coverage);pass++){
+      if(!repairPhase(true)) break;
+    }
+  }
+  return coverage;
+}
+
 function hasCriticalDeficit(coverage){
   return coverage.some((value,i)=>value<COVERAGE_TARGETS.halfMinimum[i]);
 }
@@ -1599,8 +1894,15 @@ function rebalanceAutomaticCoverage(){
     if(coverageObjective(extreme.coverage)>preferredScore) result=extreme;
     else preferredCells.forEach((cells,row)=>row.cells=clone(cells));
   }
-  smoothCoveragePeaks(rows);
-  const coverage=enforceMaximumCoverage(rows);
+
+  let coverage=enforceMaximumCoverage(rows);
+  coverage=normalizeCentinelaLoads(rows,coverage);
+  coverage=smoothCoveragePeaks(rows,coverage);
+  coverage=repairCoverageDeficits(rows,coverage);
+  coverage=normalizeCentinelaLoads(rows,coverage);
+  coverage=smoothCoveragePeaks(rows,coverage);
+  coverage=enforceMaximumCoverage(rows);
+
   state.planilla.recargo_suggestions=buildRecargoSuggestions(coverage);
   return {coverage,staffCount:result.managed.length};
 }
@@ -1618,31 +1920,74 @@ function buildRecargoSuggestions(coverage){
     const deficits=window.slots.map(i=>Math.max(0,COVERAGE_TARGETS.halfMinimum[i]-Number(coverage[i]||0)));
     const required=Math.max(0,...deficits);
     if(!required) return null;
-    const safeCapacity=Math.max(0,Math.min(...window.slots.map(i=>8-Number(coverage[i]||0))));
-    const quantity=Math.min(required,safeCapacity||required);
     const weakest=window.slots
       .map(i=>({hour:`${String(operationalHourForSlot(i)).padStart(2,"0")}-${String((operationalHourForSlot(i)+1)%24).padStart(2,"0")}`,coverage:Number(coverage[i]||0),minimum:COVERAGE_TARGETS.halfMinimum[i]}))
       .filter(item=>item.coverage<item.minimum);
-    return {range:window.label,quantity,required,weakest,limited:safeCapacity<required,reason:`Cada recargo cubre 3 tiros consecutivos (${window.label}).`};
+    const needsRebalance=window.slots.some(i=>Number(coverage[i]||0)+required>8);
+    return {
+      range:window.label,
+      quantity:required,
+      required,
+      weakest,
+      limited:needsRebalance,
+      reason:`${required} recargo${required===1?"":"s"} de 3 tiros consecutivos (${window.label}).`
+    };
   }).filter(Boolean);
 }
 function renderCoveragePlanner(){
   const root=q("#coveragePlanner");
   if(!root) return;
   const rows=meaningfulPlanillaRows(state.planilla.rows);
-  const assigned=rows.filter(row=>row.auto_assigned&&["24hs","canes"].includes(serviceKey(row.servicio)));
-  const suggestions=state.planilla.recargo_suggestions||[];
-  if(!assigned.length&&!suggestions.length){ root.classList.add("hidden"); root.innerHTML=""; return; }
-  const detail=coverageDetail(rows),halves=coverageHalfSlots(rows);
-  const below=halves.filter((value,i)=>value<COVERAGE_TARGETS.halfMinimum[i]).length;
+  const operational=rows.filter(row=>["24hs","canes"].includes(serviceKey(row.servicio)));
+  const detail=coverageDetail(rows);
+  const halves=coverageHalfSlots(rows);
+  const suggestions=buildRecargoSuggestions(halves);
+  state.planilla.recargo_suggestions=suggestions;
+
+  const belowSlots=halves
+    .map((value,i)=>({slot:i,value,min:COVERAGE_TARGETS.halfMinimum[i]}))
+    .filter(item=>item.value<item.min);
   const over=halves.filter(value=>value>8).length;
-  const canes=rows.filter(row=>serviceKey(row.servicio)==="canes");
+
+  if(!operational.length&&!belowSlots.length){
+    root.classList.add("hidden");
+    root.innerHTML="";
+    return;
+  }
+
+  const centinelas=operational.filter(row=>serviceKey(row.servicio)==="24hs");
+  const canes=operational.filter(row=>serviceKey(row.servicio)==="canes");
   root.classList.remove("hidden");
   root.innerHTML=`
     <div class="coverage-planner-head">
-      <div><span>PLANIFICACIÓN AUTOMÁTICA 07→07</span><strong>${assigned.length} agentes distribuidos · Canes: ${canes.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}/3`).join(" · ")||"sin asignar"}</strong></div>
-      <div class="coverage-planner-state ${below||over?"warning":"ok"}">${over?`⚠ ${over} horas superan 8 puestos`:below?`⚠ ${below} horas debajo del mínimo`:"✓ Cobertura estable dentro de los límites"}</div>
+      <div>
+        <span>PLANIFICACIÓN AUTOMÁTICA 07→07</span>
+        <strong>Centinelas: ${centinelas.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}`).join(" · ")||"sin personal"}${canes.length?` · Canes: ${canes.map(r=>`${esc(r.nombre)} ${formatNum(tiros(r))}/3`).join(" · ")}`:""}</strong>
+      </div>
+      <div class="coverage-planner-state ${belowSlots.length||over?"warning":"ok"}">
+        ${over?`⚠ ${over} horas superan 8 puestos`:belowSlots.length?`⚠ ${belowSlots.length} horas debajo del mínimo`:"✓ Cobertura mínima alcanzada y sin superar 8"}
+      </div>
     </div>
+
+    ${suggestions.length?`
+      <div class="coverage-critical-alert">
+        <div class="coverage-critical-icon">⚠</div>
+        <div>
+          <strong>La cobertura disponible no alcanza el mínimo</strong>
+          <span>Se intentó primero redistribuir a los centinelas con carga normal de 7 tiros y utilizar hasta 8 cuando fue necesario. Los siguientes recargos son el refuerzo pendiente.</span>
+        </div>
+      </div>
+      <div class="recargo-suggestions prominent">
+        <div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Cada recargo cubre 3 tiros consecutivos.</small></div></div>
+        <div class="recargo-cards">
+          ${suggestions.map(item=>`<div class="recargo-card">
+            <b>${item.quantity} × ${item.range}</b>
+            <span>${esc(item.reason)}</span>
+            <small>${item.weakest.map(x=>`${x.hour}: ${x.coverage}/${x.minimum}`).join(" · ")}${item.limited?" · reorganizar las X para no superar 8 en el resto del bloque":""}</small>
+          </div>`).join("")}
+        </div>
+      </div>`:""}
+
     <div class="coverage-mini-grid">
       ${detail.map((item,i)=>{
         const leftMin=COVERAGE_TARGETS.halfMinimum[i*2],rightMin=COVERAGE_TARGETS.halfMinimum[i*2+1];
@@ -1650,10 +1995,13 @@ function renderCoveragePlanner(){
         const belowMin=item.left<leftMin||item.right<rightMin;
         const belowIdeal=item.left<COVERAGE_TARGETS.halfIdeal[i*2]||item.right<COVERAGE_TARGETS.halfIdeal[i*2+1];
         const level=leftMax||rightMax?"high":belowMin?"critical":belowIdeal?"caution":"safe";
-        return `<div class="coverage-mini ${level}"><small>${HOURS[i]}</small><strong>${item.display}</strong><span>mín ${targetTextForColumn(i,"halfMinimum")} · ideal ${targetTextForColumn(i,"halfIdeal")}</span></div>`;
+        return `<div class="coverage-mini ${level}">
+          <small>${HOURS[i]}</small>
+          <strong>${item.display}</strong>
+          <span>mín ${targetTextForColumn(i,"halfMinimum")} · ideal ${targetTextForColumn(i,"halfIdeal")}</span>
+        </div>`;
       }).join("")}
     </div>
-    ${suggestions.length?`<div class="recargo-suggestions"><div class="recargo-title"><span>＋</span><div><strong>Recargos sugeridos</strong><small>Bloques de 3 tiros consecutivos.</small></div></div><div class="recargo-cards">${suggestions.map(item=>`<div class="recargo-card"><b>${item.quantity} × ${item.range}</b><span>${esc(item.reason)}</span><small>${item.weakest.map(x=>`${x.hour}: ${x.coverage}/${x.minimum}`).join(" · ")}${item.limited?" · requiere reorganizar para no superar 8":""}</small></div>`).join("")}</div></div>`:""}
   `;
 }
 function loadDay(){
@@ -1736,7 +2084,11 @@ function rowsForDate(d){
     });
     addStandardRowsTo(rows,d,state.planilla.turno);
     rows.forEach(row=>{ if(["24hs","canes"].includes(serviceKey(row.servicio))){ row.auto_managed=true; row.auto_assigned=true; } });
-    runCoverageOptimizer(rows,{allowExtreme:false});
+    let generated=runCoverageOptimizer(rows,{allowExtreme:false});
+    if(hasCriticalDeficit(generated.coverage)) generated=runCoverageOptimizer(rows,{allowExtreme:true});
+    smoothCoveragePeaks(rows);
+    let generatedCoverage=enforceMaximumCoverage(rows);
+    generatedCoverage=repairCoverageDeficits(rows,generatedCoverage);
     enforceMaximumCoverage(rows);
     rows.sort((a,b)=>{
       const rank = s=>{ const k=serviceKey(s); if(k==="24hs")return 0; if(k==="canes")return 1; if(["4hs","6hs","12hs","diario"].includes(k))return 2; if(k==="rondin")return 3; if(k==="recargo")return 4; return 5; };

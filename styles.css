@@ -803,3 +803,36 @@ html[data-theme="dark"] .weather-now{background:linear-gradient(140deg,var(--acc
 .coverage-mini strong{font-variant-numeric:tabular-nums}
 html[data-theme="dark"] .shift-table td.descanso{color:#a9c0ff;background:color-mix(in srgb,#375fd6 30%,var(--surface))!important}
 @media(max-width:720px){.shift-table td.descanso::after{display:none}}
+
+
+/* WebN21 · Cobertura visible y recargos destacados */
+.coverage-critical-alert{
+  display:grid;grid-template-columns:auto 1fr;gap:.65rem;align-items:center;
+  margin:.2rem 0 .65rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,#dc3545 55%,var(--border));
+  border-left:6px solid #dc3545;border-radius:10px;background:color-mix(in srgb,#dc3545 9%,var(--surface))
+}
+.coverage-critical-icon{font-size:1.55rem}
+.coverage-critical-alert>div:last-child{display:grid;gap:.15rem}
+.coverage-critical-alert strong{color:var(--danger-strong);font-size:.88rem}
+.coverage-critical-alert span{font-size:.72rem;color:var(--muted);line-height:1.35}
+.recargo-suggestions.prominent{
+  margin:.3rem 0 .7rem;padding:.6rem;border:1px solid color-mix(in srgb,#e86b18 52%,var(--border));
+  border-radius:10px;background:color-mix(in srgb,#e86b18 7%,var(--surface))
+}
+.coverage-planner .coverage-mini.critical{
+  animation:coverage-critical-pulse 1.8s ease-in-out infinite
+}
+@keyframes coverage-critical-pulse{
+  50%{box-shadow:0 0 0 3px color-mix(in srgb,#dc3545 22%,transparent)}
+}
+@media (prefers-reduced-motion:reduce){
+  .coverage-planner .coverage-mini.critical{animation:none}
+}
+
+
+/* WebN22 · Recálculo no bloqueante */
+.coverage-planner.is-calculating{min-height:58px;display:grid;place-items:center}
+.coverage-calculating{display:flex;align-items:center;gap:.55rem;color:var(--muted)}
+.coverage-calculating span{width:18px;height:18px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:coverage-spin .7s linear infinite}
+.coverage-calculating strong{font-size:.82rem}
+@keyframes coverage-spin{to{transform:rotate(360deg)}}

@@ -1,29 +1,31 @@
-WEBN20 - ACTUALIZACIÓN PARA GIT Y VERCEL
+WEBN22 - ACTUALIZACIÓN PARA GIT Y VERCEL
 
-DESCANSOS D MANUALES
-- Los descansos D de rotativos de 48 horas, recargos entrantes y rondines
-  entrantes ya no se colocan automáticamente.
-- El operador decide quién debe descansar y marca manualmente las celdas.
-- En pantalla táctil: mantener presionado sigue el ciclo H → D → vacío.
-- En PC: Ctrl + clic sigue el mismo ciclo.
-- Al colocar D, cambiar H por D o quitar D, la tabla recalcula inmediatamente
-  todas las X administradas automáticamente.
-- El recálculo conserva la D como un bloqueo: el optimizador no puede volver a
-  asignar una X durante ese descanso.
-- Para representar el descanso de 07 a 11 deben marcarse manualmente con D las
-  columnas 07-09 y 09-11.
-- Si se elimina una D, esas horas vuelven a quedar disponibles para el cálculo.
+CORRECCIÓN DE RENDIMIENTO
+- Se eliminó la búsqueda por haz introducida en WebN21.
+- El nuevo optimizador evalúa una cantidad controlada de patrones y realiza
+  solamente dos refinamientos rápidos.
+- Los patrones válidos quedan almacenados en caché según los descansos de cada persona.
+- Al marcar H o D, la marca aparece inmediatamente y el recálculo se ejecuta
+  una sola vez después de una pausa breve de 60 ms.
+- Varios cambios seguidos se agrupan en un único recálculo.
+- La tabla ya no debe quedar bloqueada al realizar modificaciones pequeñas.
 
-SE MANTIENE
-- Canes: máximo de 3 tiros durante toda la guardia.
-- Control de fatiga con una columna completa de descanso entre bloques.
-- Descanso nocturno de los centinelas de 24 horas.
-- Cobertura estable, máximo de 8 puestos y suavizado de picos.
-- Reducción automática de rondines mediante /D o D/ únicamente cuando se debe
-  corregir una sobrecobertura; esto no sustituye los descansos personales que
-  debe indicar el operador.
-- Sugerencias de recargos de 3 tiros consecutivos.
-- Clima y guardias ordenados de 07 a 07.
+COBERTURA ESTABLE
+- La carga normal de cada centinela de 24 horas vuelve a ser exactamente 7 tiros.
+- Se priorizan patrones de 7 tiros desde el inicio.
+- El optimizador automático no agrega un octavo tiro aislado.
+- Si con 7 tiros por centinela no se alcanza el mínimo, muestra recargos en lugar de sobrecargar al personal.
+- Se penalizan con fuerza los saltos a 8 que duran una o dos horas.
+- El suavizado traslada tiros a horarios más débiles manteniendo la carga del
+  centinela, en lugar de quitar y agregar puestos bruscamente.
+- Se mantiene el máximo absoluto de 8 puestos.
+- Los Canes continúan limitados a 3 tiros.
+- Los descansos D siguen siendo manuales y siempre se respetan.
+
+RECARGOS
+- Las sugerencias se muestran cuando, después de redistribuir y completar la
+  carga normal de 7 tiros, no se alcanza el mínimo.
+- Cada recargo sugerido cubre 3 tiros consecutivos.
 
 ACTUALIZACIÓN
 1. Copiar el contenido del ZIP sobre la carpeta del repositorio.
@@ -32,8 +34,8 @@ ACTUALIZACIÓN
 
    git status
    git add .
-   git commit -m "Actualizar a WebN20 con descansos D manuales"
+   git commit -m "Actualizar a WebN22 con optimizador rápido y cobertura estable"
    git push
 
 No se agregaron dependencias ni variables de entorno.
-Los datos existentes de personal permanecen en Upstash.
+Los datos existentes del personal permanecen en Upstash.
